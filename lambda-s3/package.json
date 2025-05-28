@@ -1,0 +1,26 @@
+{
+  "name": "lambda-s3",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "package": "npm run build && npm run zip",
+    "zip": "zip -r lambda-s3.zip dist/index.js node_modules",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.817.0",
+    "sharp": "^0.32.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.149",
+    "@types/node": "^22.15.23",
+    "@types/sharp": "^0.31.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
