@@ -42,6 +42,7 @@
     "passport-local": "^1.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.34.2",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
@@ -75,29 +76,28 @@
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },
-  
   "jest": {
     "moduleFileExtensions": [
       "js",
       "json",
       "ts"
     ],
-    "rootDir": "src", 
+    "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "collectCoverageFrom": [ 
-      "**/*.(t|j)s", 
-      "!**/main.ts", 
-      "!**/*.module.ts", 
+    "collectCoverageFrom": [
+      "**/*.(t|j)s",
+      "!**/main.ts",
+      "!**/*.module.ts",
       "!**/node_modules/**",
       "!**/vendor/**",
       "!**/*.spec.ts"
     ],
-    "coverageDirectory": "../coverage", 
+    "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "coverageThreshold": { 
+    "coverageThreshold": {
       "global": {
         "branches": 90,
         "functions": 90,
@@ -105,7 +105,5 @@
         "statements": 90
       }
     }
-   
   }
 }
-
