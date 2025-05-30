@@ -169,6 +169,7 @@ export class UsersService {
 
     if(updateUserDto.phone && updateUserDto.phone !== user.phone) {
       expressionAttributeValues[':phone'] = updateUserDto.phone;
+      expressionAttributeNames['#phone'] = 'phone';
       updateExpressionParts.push('#phone = :phone');
       changes = true;
     }
