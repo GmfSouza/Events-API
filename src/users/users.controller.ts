@@ -18,17 +18,18 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { Express } from 'express'; 
 import { S3UploadFile } from 'src/aws/interfaces/s3-upload.interface';
 import { UserRole } from './enums/user-role.enum';
+import { Public } from 'src/auth/decorators/isPublic.decorator';
 
 @Controller('users')
 export class UsersController {
   private readonly logger = new Logger(UsersController.name);
 
   constructor(private readonly usersService: UsersService) {}
-
+  @Public()
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor('profileImage')) 
-  async createUser(
+  public async createUser(
     @Body() createUserDto: CreateUserDto,
     @UploadedFile(
       new ParseFilePipe({ 
