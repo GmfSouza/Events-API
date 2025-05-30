@@ -50,7 +50,7 @@ export class UsersService {
 
             return null;
         } catch (error) {
-            this.logger.error(`Error to get user by email: ${email}`, error);
+            this.logger.error(`Error to get user by email: ${email}`, error.stack);
             return null;
         }
     }	
@@ -103,7 +103,7 @@ export class UsersService {
         const command = new PutCommand({
             TableName: this.tableName,
             Item: newUser,
-            ConditionExpression: 'attribute_not_exists(email)', 
+            ConditionExpression: 'attribute_not_exists(id)', 
         });
 
         try {
