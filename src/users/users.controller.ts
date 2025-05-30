@@ -16,6 +16,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
   NotFoundException,
+  Patch,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express'; 
 import { UsersService } from './users.service';
@@ -26,6 +27,7 @@ import { S3UploadFile } from 'src/aws/interfaces/s3-upload.interface';
 import { UserRole } from './enums/user-role.enum';
 import { Public } from 'src/auth/decorators/isPublic.decorator';
 import { AuthenticatedRequest } from './interfaces/auth-request.interface';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Controller('users')
 export class UsersController {
@@ -34,7 +36,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
   @Public()
   @Post()
-  @HttpCode(HttpStatus.CREATED)
+  @HttpCode(201)
   @UseInterceptors(FileInterceptor('profileImage')) 
   public async createUser(
     @Body() createUserDto: CreateUserDto,
@@ -61,6 +63,7 @@ export class UsersController {
     });
   }
 
+  @HttpCode(200)
   @Get(':id')
   async getUser(@Param('id') id: string, @Req() request: AuthenticatedRequest): Promise<UserResponseDto> {
     this.logger.log(`Getting user: ${id}`);
@@ -81,6 +84,23 @@ export class UsersController {
     return new UserResponseDto({
       ...userResponseDto,
       role: user.role as UserRole,
+    });
+  }
+
+  @HttpCode(200)
+  @Patch(':id')
+  async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Req() request: AuthenticatedRequest): Promise<UserResponseDto> {
+    this.logger.log(`Updating user: ${id}`);
+    const authUser = request.user;
+    if(authUser.userId !== id) {
+      this.logger.warn(`Unauthorized access attempt by user: ${authUser.userId} to update user: ${id}`);
+      throw new ForbiddenException('You do not have permission to access this resource');
+    }
+
+    const updatedUser = await this.usersService.update(id, updateUserDto);
+    return new UserResponseDto({
+      ...updatedUser,
+      role: updatedUser.role as UserRole,
     });
   }
 }
