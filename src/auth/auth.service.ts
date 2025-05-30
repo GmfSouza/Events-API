@@ -13,6 +13,7 @@ export class AuthService {
     async validateUser(email: string, password: string): Promise<Omit<User, 'password'>> {
         this.logger.debug(`Validating user with email ${email}`);
         const user = await this.usersService.findUserByEmail(email);
+
         if (!user) {
             this.logger.warn(`User with email ${email} not found`);
             throw new NotFoundException('User not found');
@@ -30,9 +31,9 @@ export class AuthService {
         const validPassword = await compare(password, user.password);
         if (!validPassword) {
             this.logger.warn(`Invalid password for user with email ${email}`);
-            throw new UnauthorizedException('Invalid password');
+            throw new UnauthorizedException('Invalid credentials');
         }
-
+        
         const { password: _, ...result } = user;
         return result;
     }
@@ -50,12 +51,12 @@ export class AuthService {
         };
     }
 
-    async login(user: User): Promise<{ access_token: string }> {
-        if (!user.email || !user.password) {
-            this.logger.warn('Email or password is missing in user object');
-            throw new UnauthorizedException('Email and password must be provided');
+    async login(user: Omit<User, 'password'>): Promise<{ access_token: string }> {
+        if (!user.email || !user.role) {
+            this.logger.warn('Email or role is missing in user object');
+            throw new UnauthorizedException('Email and role must be provided');
         }
-        await this.validateUser(user.email, user.password);
+        
         return this.generateToken(user);
     }
 }
