@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DynamoDbService } from 'src/aws/dynamodb/dynamodb.service';
 import { User } from './interfaces/user.interface';
@@ -6,7 +6,7 @@ import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { CreateUserDto } from './dto/create-user.dto';
 import { hash } from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
-import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Service } from 'src/aws/s3/s3.service';
 
 @Injectable()
@@ -54,6 +54,29 @@ export class UsersService {
             return null;
         }
     }	
+
+    async findUserById(userId: string): Promise<User | null> {
+      this.logger.log(`Getting user by id: ${userId} from ${this.tableName}`);
+      const command = new GetCommand({
+        TableName: this.tableName,
+        Key: { id: userId },
+      });
+
+      try {
+        const response = await this.dynamoDbService.docClient.send(command);
+      if(!response.Item) {
+        this.logger.error(`User with id ${userId} not found.`);
+        return null
+      }
+
+      this.logger.log(`User found: ${userId}`);
+      return response.Item as User;
+
+      } catch (error) {
+        this.logger.error(`Error to get user by id: ${userId}`, error.stack);
+        throw new InternalServerErrorException('An internal server error occurred while retrieving the user');
+      }
+    }
 
     async create(createUserDto: CreateUserDto, profileImageFile?: Express.Multer.File): Promise<Omit<User, 'password'>> {
         const { name, email, password, phone, role } = createUserDto;

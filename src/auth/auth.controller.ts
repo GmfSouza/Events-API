@@ -15,7 +15,6 @@ export class AuthController {
     @Post('login')
     @HttpCode(200)
     public async login(@Request() req: AuthRequest, @Body() loginDto: LoginDto): Promise<{ access_token: string }>  {
-        this.logger.debug(`AuthController.login: req.user recebido da LocalStrategy: ${JSON.stringify(req.user)}`);
         return this.authService.login(req.user);
     }
 }
