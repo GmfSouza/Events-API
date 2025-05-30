@@ -27,6 +27,10 @@ private readonly logger = new Logger(JwtStrategy.name);
             this.logger.warn('Invalid JWT payload received');
             throw new UnauthorizedException('Invalid token');
         }
-        return payload;
+        return {
+            userId: payload.sub,
+            email: payload.email,
+            role: payload.role,
+        };
     }
 }
