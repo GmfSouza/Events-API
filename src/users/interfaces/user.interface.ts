@@ -10,4 +10,6 @@ export interface User {
   updatedAt: string; 
   isActive: boolean;
   isEmailValidated: boolean;
+  emailValidationToken?: string;
+  emailValidationTokenExpires?: string;
 }
