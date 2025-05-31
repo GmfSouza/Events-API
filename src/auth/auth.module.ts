@@ -7,6 +7,7 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { DynamoDbService } from 'src/aws/dynamodb/dynamodb.service';
 
 @Module({
   imports: [UsersModule, PassportModule.register({ defaultStrategy: 'jwt' }), JwtModule.registerAsync({
@@ -18,7 +19,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     })
   })],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy],
+  providers: [AuthService, LocalStrategy, JwtStrategy, DynamoDbService],
   exports: [AuthService, JwtModule]
 })
 export class AuthModule {}
