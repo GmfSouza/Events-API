@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
@@ -387,6 +388,43 @@ export class UsersService {
         error.stack,
       );
       throw new InternalServerErrorException('Failed to update user.');
+    }
+  }
+
+  async softDelete(userId: string): Promise<void> {
+    const user = await this.findUserById(userId);
+    if (!user) {
+      this.logger.error(`User not found: ${userId}`);
+      throw new NotFoundException('User not found');
+    }
+
+    if(!user.isActive) {
+      this.logger.warn(`User already soft deleted: ${userId}`);
+      throw new BadRequestException('User is already inactive');
+    }
+
+    this.logger.log(`Soft deleting user: ${userId}`);
+    const updateCommand = new UpdateCommand ({
+      TableName: this.tableName,
+      Key: { id: userId },
+      UpdateExpression: 'SET #isActive = :isActive, #updatedAt = :updatedAt',
+      ExpressionAttributeNames: {
+        '#isActive': 'isActive',
+        '#updatedAt': 'updatedAt',
+      },
+      ExpressionAttributeValues: {
+        ':isActive': false,
+        ':updatedAt': new Date().toISOString(),
+      },
+      ReturnValues: 'NONE',
+    });
+
+    try {
+      await this.dynamoDbService.docClient.send(updateCommand);
+      this.logger.log(`User with ID ${userId} soft deleted successfully.`);
+    } catch (error) {
+      this.logger.error(`Error soft deleting user ${userId}:`, error.stack);
+      throw new InternalServerErrorException('Failed to soft delete user.');
     }
   }
 }
