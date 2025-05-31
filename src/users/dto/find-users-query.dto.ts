@@ -23,6 +23,7 @@ export class ListUsersDto {
   role?: UserRole;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt({ message: 'page number must be a integer' })
   @Min(1, { message: 'Page number must be at least 1.' })
   page?: number = 1;
@@ -33,4 +34,8 @@ export class ListUsersDto {
   @Min(1, { message: 'limit must be at least 1.' })
   @Max(50, { message: 'limit must not be greater than 50.' })
   limit?: number = 10;
+
+   @IsOptional()
+  @IsString()
+  lastEvaluatedKey?: string; 
 }

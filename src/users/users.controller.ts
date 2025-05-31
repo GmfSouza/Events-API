@@ -17,6 +17,7 @@ import {
   ForbiddenException,
   NotFoundException,
   Patch,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express'; 
 import { UsersService } from './users.service';
@@ -28,6 +29,7 @@ import { UserRole } from './enums/user-role.enum';
 import { Public } from 'src/auth/decorators/isPublic.decorator';
 import { AuthenticatedRequest } from './interfaces/auth-request.interface';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ListUsersDto } from './dto/find-users-query.dto';
 
 @Controller('users')
 export class UsersController {
@@ -85,6 +87,29 @@ export class UsersController {
       ...userResponseDto,
       role: user.role as UserRole,
     });
+  }
+
+  @Get()
+  @HttpCode(200)
+  async getAll(@Query() listUserDto: ListUsersDto, @Req() request: AuthenticatedRequest): Promise<{ items: UserResponseDto[]; total: number; lastEvaluatedKey?: Record<string, any>}> {
+    this.logger.log(`Listing users with query: ${JSON.stringify(listUserDto)}`);
+
+    const authUser = request.user;
+    if(authUser.role !== 'ADMIN') {
+      this.logger.warn(`Unauthorized access attempt by user: ${authUser.userId} to list users`);
+      throw new ForbiddenException('You do not have permission to access this resource');
+    }
+
+    const result = await this.usersService.findAllUsers(listUserDto);
+
+    return {
+      items: result.users.map(user => new UserResponseDto({
+        ...user,
+        role: user.role as UserRole,
+      })),
+      total: result.total,
+      lastEvaluatedKey: result.lastEvaluatedKey,
+    };
   }
 
   @HttpCode(200)
