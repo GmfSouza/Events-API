@@ -72,7 +72,7 @@ export class UsersController {
     this.logger.log(`Getting user: ${id}`);
 
     const authUser = request.user;
-    if(authUser.role !== 'ADMIN' && authUser.userId !== id) {
+    if(authUser.role !== UserRole.ADMIN && authUser.userId !== id) {
       this.logger.warn(`Unauthorized access attempt by user: ${authUser.userId} to get user: ${id}`);
       throw new ForbiddenException('You do not have permission to access this resource');
     }
@@ -96,7 +96,7 @@ export class UsersController {
     this.logger.log(`Listing users with query: ${JSON.stringify(listUserDto)}`);
 
     const authUser = request.user;
-    if(authUser.role !== 'ADMIN') {
+    if(authUser.role !== UserRole.ADMIN) {
       this.logger.warn(`Unauthorized access attempt by user: ${authUser.userId} to list users`);
       throw new ForbiddenException('You do not have permission to access this resource');
     }
