@@ -26,6 +26,7 @@ import { S3Service } from 'src/aws/s3/s3.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ListUsersDto } from './dto/find-users-query.dto';
 import { ScanCommand } from '@aws-sdk/client-dynamodb';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class UsersService {
@@ -38,6 +39,7 @@ export class UsersService {
     private readonly dynamoDbService: DynamoDbService,
     private readonly configService: ConfigService,
     private readonly s3Service: S3Service,
+    private readonly mailService: MailService,
   ) {
     const usersTableName = this.configService.get<string>(
       'DYNAMODB_TABLE_USERS',
@@ -260,6 +262,12 @@ export class UsersService {
       }
     }
 
+    const tokenExpirationTime = 24;
+    const emailValidationToken = uuidv4();
+    const emailValidationTokenExpires = new Date(
+      Date.now() + tokenExpirationTime * 60 * 60 * 1000,
+    ).toISOString();
+
     const newUser: User = {
       id: userId,
       name,
@@ -270,6 +278,8 @@ export class UsersService {
       profileImageUrl,
       isActive: true,
       isEmailValidated: false,
+      emailValidationToken: emailValidationToken,
+      emailValidationTokenExpires: emailValidationTokenExpires,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -285,8 +295,15 @@ export class UsersService {
       this.logger.log(
         `User created successfully: ${newUser.id} (${newUser.email})`,
       );
-      const { password: _, ...userWithoutPassword } = newUser;
-      return userWithoutPassword;
+
+      try {
+        this.logger.log(`Sending email verification to ${newUser.email}`);
+        await this.mailService.sendEmailVerification(newUser.name, newUser.email, emailValidationToken);
+      } catch (error) {
+        this.logger.error(`Failed to send email verification to ${newUser.email}:`, error.stack);
+      }
+      const { password: _, emailValidationToken: __, emailValidationTokenExpires: ___, ...userNoSensitiveData } = newUser;
+      return userNoSensitiveData;
     } catch (error) {
       this.logger.error(`Error creating user: ${email}`, error);
       throw new InternalServerErrorException(
@@ -342,7 +359,27 @@ export class UsersService {
       expressionAttributeValues[':email'] = updateUserDto.email;
       updateExpressionParts.push('isEmailValidated = :isEmailValidated');
       expressionAttributeValues[':isEmailValidated'] = false;
+      
+      const newEmailValidationToken = uuidv4();
+      const tokenExpirationTime = 24;
+      const newEmailValidationTokenExpires = new Date(
+        Date.now() + tokenExpirationTime * 60 * 60 * 1000,
+      ).toISOString();
+      
+      expressionAttributeNames['#emailValidationToken'] = 'emailValidationToken';
+      expressionAttributeValues[':emailValidationToken'] = newEmailValidationToken;
+      updateExpressionParts.push('#emailValidationToken = :emailValidationToken');
+      
+      expressionAttributeNames['#emailValidationTokenExpires'] = 'emailValidationTokenExpires';
+      expressionAttributeValues[':emailValidationTokenExpires'] = newEmailValidationTokenExpires;
+      updateExpressionParts.push('#emailValidationTokenExpires = :emailValidationTokenExpires');
+      
       changes = true;
+      this.logger.log(`Sending email verification to ${updateUserDto.email}`);
+      this.mailService.sendEmailVerification(user.name, updateUserDto.email, newEmailValidationToken)
+        .catch((error) => {
+          this.logger.error(`Failed to send email verification to ${updateUserDto.email}:`, error.stack);
+        });
     }
 
     if (updateUserDto.password) {
@@ -379,9 +416,9 @@ export class UsersService {
       this.logger.log(
         `User with ID ${userId} updated successfully in DynamoDB.`,
       );
-      const { password, ...updatedUserWithoutPassword } =
+      const { password, emailValidationToken, emailValidationTokenExpires, ...updatedUserNoSensiveData } =
         result.Attributes as User;
-      return updatedUserWithoutPassword;
+      return updatedUserNoSensiveData;
     } catch (error) {
       this.logger.error(
         `Error updating user ${userId} in DynamoDB:`,
