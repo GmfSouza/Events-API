@@ -18,6 +18,7 @@ import {
   NotFoundException,
   Patch,
   Query,
+  Delete,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express'; 
 import { UsersService } from './users.service';
@@ -127,5 +128,18 @@ export class UsersController {
       ...updatedUser,
       role: updatedUser.role as UserRole,
     });
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async delete(@Param('id') id: string, @Req() request: AuthenticatedRequest): Promise<void> {
+    this.logger.log(`Deleting user: ${id}`);
+    const authUser = request.user;
+    if(authUser.role !== UserRole.ADMIN && authUser.userId !== id) {
+      this.logger.warn(`Unauthorized access attempt by user: ${authUser.userId} to delete user: ${id}`);
+      throw new ForbiddenException('You do not have permission to access this resource');
+    }
+
+    await this.usersService.softDelete(id);
   }
 }
