@@ -165,7 +165,7 @@ export class UsersService {
     if (role) {
       this.logger.log(`Filtering users by role: ${role}`);
       expressionAttributeNames['#role'] = 'role';
-      expressionAttributeValues[':role'] = { S: role };
+      expressionAttributeValues[':role'] = role;
 
       commandInput = {
         TableName: this.tableName,
