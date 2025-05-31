@@ -7,6 +7,7 @@ import { EventsModule } from './events/events.module';
 import { RegistrationsModule } from './registrations/registrations.module';
 import { AwsModule } from './aws/aws.module';
 import { ConfigModule } from '@nestjs/config';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ConfigModule } from '@nestjs/config';
     EventsModule,
     RegistrationsModule,
     AwsModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [AppService],
