@@ -161,7 +161,7 @@ describe('AuthService - generateToken', () => {
   let jwtService: JwtService;
 
   const mockFullUser: User = {
-    id: 'user-id-123',
+    id: 'user-id',
     name: 'Test User Full',
     email: 'testfull@example.com',
     password: 'hashedPasswordPlaceholder', 
@@ -262,7 +262,7 @@ describe('AuthService - login', () => {
   let jwtService: JwtService;
 
   const mockUser = {
-    id: '123',
+    id: 'test-id',
     name: 'Test User',
     email: 'test@example.com',
     password: 'testPassword!',
@@ -342,7 +342,7 @@ describe('AuthService - login', () => {
 
   it('should throw UnauthorizedException when email is missing', async () => {
     const userWithoutEmail = {
-      id: '123',
+      id: 'test-id',
       name: 'Test User',
       email: undefined as any,
       phone: '1234567890',
@@ -361,7 +361,7 @@ describe('AuthService - login', () => {
 
   it('should throw UnauthorizedException when role is missing', async () => {
     const userWithoutRole = {
-      id: '123',
+      id: 'test-id',
       name: 'Test User',
       email: 'test@example.com',
       phone: '1234567890',
