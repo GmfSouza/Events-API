@@ -3,7 +3,8 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UserRole } from './enums/user-role.enum';
-import { Logger } from '@nestjs/common';
+import { ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
+import { AuthenticatedRequest } from './interfaces/auth-request.interface';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -110,3 +111,102 @@ describe('UsersController', () => {
   });
 });
 
+describe('UsersController - getUser', () => {
+  let controller: UsersController;
+  let usersService: UsersService;
+
+  const mockUser = {
+    id: 'test-user-id',
+    email: 'test@example.com',
+    name: 'John',
+    role: UserRole.PARTICIPANT,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const mockUsersService = {
+    findUserById: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [UsersController],
+      providers: [
+        {
+          provide: UsersService,
+          useValue: mockUsersService,
+        },
+      ],
+    }).compile();
+
+    controller = module.get<UsersController>(UsersController);
+    usersService = module.get<UsersService>(UsersService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return user when admin requests any user', async () => {
+    const mockRequest = {
+      user: { userId: 'admin-id', role: UserRole.ADMIN },
+    } as AuthenticatedRequest;
+
+    mockUsersService.findUserById.mockResolvedValue({
+      ...mockUser,
+      password: 'hashed-password',
+    });
+
+    const result = await controller.getUser('test-user-id', mockRequest);
+
+    expect(result).toBeDefined();
+    expect(result.id).toBe(mockUser.id);
+    expect(result.email).toBe(mockUser.email);
+    expect(result.role).toBe(UserRole.PARTICIPANT);
+    expect(result).not.toHaveProperty('password');
+    expect(usersService.findUserById).toHaveBeenCalledWith('test-user-id');
+  });
+
+  it('should return user when user requests their own profile', async () => {
+    const mockRequest = {
+      user: { userId: 'test-user-id', role: UserRole.PARTICIPANT },
+    } as AuthenticatedRequest;
+
+    mockUsersService.findUserById.mockResolvedValue({
+      ...mockUser,
+      password: 'hashed-password',
+    });
+
+    const result = await controller.getUser('test-user-id', mockRequest);
+
+    expect(result).toBeDefined();
+    expect(result.id).toBe(mockUser.id);
+    expect(usersService.findUserById).toHaveBeenCalledWith('test-user-id');
+  });
+
+  it('should throw ForbiddenException when non-admin user requests another user profile', async () => {
+    const mockRequest = {
+      user: { userId: 'different-user-id', role: UserRole.PARTICIPANT },
+    } as AuthenticatedRequest;
+
+    await expect(
+      controller.getUser('test-user-id', mockRequest)
+    ).rejects.toThrow(ForbiddenException);
+
+    expect(usersService.findUserById).not.toHaveBeenCalled();
+  });
+
+  it('should throw NotFoundException when user is not found', async () => {
+    const mockRequest = {
+      user: { userId: 'admin-id', role: UserRole.ADMIN },
+    } as AuthenticatedRequest;
+
+    mockUsersService.findUserById.mockResolvedValue(null);
+
+    await expect(
+      controller.getUser('non-existent-id', mockRequest)
+    ).rejects.toThrow(NotFoundException);
+
+    expect(usersService.findUserById).toHaveBeenCalledWith('non-existent-id');
+  });
+});
