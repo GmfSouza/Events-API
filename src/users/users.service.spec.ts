@@ -6,7 +6,7 @@ import { S3Service } from 'src/aws/s3/s3.service';
 import { MailService } from 'src/mail/mail.service';
 import { GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ScanCommand } from '@aws-sdk/client-dynamodb';
-import { ConflictException, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
 import { ListUsersDto } from './dto/find-users-query.dto';
@@ -801,5 +801,156 @@ describe('UsersService - update', () => {
     await expect(service.update(mockUser.id, updateUserDto))
       .rejects
       .toThrow(InternalServerErrorException);
+  });
+});
+
+describe('UsersService - softDelete', () => {
+  let service: UsersService;
+  let dynamoDbService: DynamoDbService;
+  let mailService: MailService;
+
+  const mockUser = {
+    id: 'test-id',
+    name: 'Test User',
+    email: 'test@example.com',
+    isActive: true,
+  };
+
+  const mockDynamoDbService = {
+    docClient: {
+      send: jest.fn(),
+    },
+  };
+
+  const mockConfigService = {
+    get: jest.fn().mockReturnValue('test-table'),
+  };
+
+  const mockS3Service = {};
+
+  const mockMailService = {
+    sendDeletedAccountNotification: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        UsersService,
+        {
+          provide: DynamoDbService,
+          useValue: mockDynamoDbService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
+        {
+          provide: S3Service,
+          useValue: mockS3Service,
+        },
+        {
+          provide: MailService,
+          useValue: mockMailService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<UsersService>(UsersService);
+    dynamoDbService = module.get<DynamoDbService>(DynamoDbService);
+    mailService = module.get<MailService>(MailService);
+
+    jest.spyOn(service, 'findUserById');
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should successfully soft delete a user', async () => {
+    const userId = 'test-id';
+    (service.findUserById as jest.Mock).mockResolvedValue(mockUser);
+    mockDynamoDbService.docClient.send.mockResolvedValue({});
+
+    await service.softDelete(userId);
+
+    expect(service.findUserById).toHaveBeenCalledWith(userId);
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalledWith(
+      expect.any(UpdateCommand)
+    );
+    expect(mockMailService.sendDeletedAccountNotification).toHaveBeenCalledWith(
+      mockUser.name,
+      mockUser.email
+    );
+  });
+
+  it('should throw NotFoundException when user is not found', async () => {
+    const userId = 'non-existent-user';
+    (service.findUserById as jest.Mock).mockResolvedValue(null);
+
+    await expect(service.softDelete(userId)).rejects.toThrow(NotFoundException);
+    expect(service.findUserById).toHaveBeenCalledWith(userId);
+    expect(mockDynamoDbService.docClient.send).not.toHaveBeenCalled();
+    expect(mockMailService.sendDeletedAccountNotification).not.toHaveBeenCalled();
+  });
+
+  it('should throw BadRequestException when user is already inactive', async () => {
+    const userId = 'inactive-user';
+    const inactiveUser = { ...mockUser, isActive: false };
+    (service.findUserById as jest.Mock).mockResolvedValue(inactiveUser);
+
+    await expect(service.softDelete(userId)).rejects.toThrow(BadRequestException);
+    expect(service.findUserById).toHaveBeenCalledWith(userId);
+    expect(mockDynamoDbService.docClient.send).not.toHaveBeenCalled();
+    expect(mockMailService.sendDeletedAccountNotification).not.toHaveBeenCalled();
+  });
+
+  it('should handle DynamoDB errors appropriately', async () => {
+    const userId = 'test-id';
+    (service.findUserById as jest.Mock).mockResolvedValue(mockUser);
+    mockDynamoDbService.docClient.send.mockRejectedValue(new Error('DynamoDB error'));
+
+    await expect(service.softDelete(userId)).rejects.toThrow('Failed to soft delete user.');
+    expect(service.findUserById).toHaveBeenCalledWith(userId);
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalled();
+    expect(mockMailService.sendDeletedAccountNotification).not.toHaveBeenCalled();
+  });
+
+  it('should continue execution even if email notification fails', async () => {
+    const userId = 'test-id';
+    (service.findUserById as jest.Mock).mockResolvedValue(mockUser);
+    mockDynamoDbService.docClient.send.mockResolvedValue({});
+    mockMailService.sendDeletedAccountNotification.mockRejectedValue(new Error('Email error'));
+
+    await service.softDelete(userId);
+
+    expect(service.findUserById).toHaveBeenCalledWith(userId);
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalled();
+    expect(mockMailService.sendDeletedAccountNotification).toHaveBeenCalled();
+  });
+
+  it('should update user with correct parameters', async () => {
+    const userId = 'test-id';
+    (service.findUserById as jest.Mock).mockResolvedValue(mockUser);
+    mockDynamoDbService.docClient.send.mockResolvedValue({});
+
+    await service.softDelete(userId);
+
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          TableName: 'test-table',
+          Key: { id: userId },
+          UpdateExpression: 'SET #isActive = :isActive, #updatedAt = :updatedAt',
+          ExpressionAttributeNames: {
+            '#isActive': 'isActive',
+            '#updatedAt': 'updatedAt',
+          },
+          ExpressionAttributeValues: expect.objectContaining({
+            ':isActive': false,
+            ':updatedAt': expect.any(String),
+          }),
+        }),
+      })
+    );
   });
 });
