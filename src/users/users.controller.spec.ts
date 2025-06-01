@@ -5,6 +5,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UserRole } from './enums/user-role.enum';
 import { ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
 import { AuthenticatedRequest } from './interfaces/auth-request.interface';
+import { ListUsersDto } from './dto/find-users-query.dto';
+import { UserResponseDto } from './dto/user-response.dto';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -208,5 +210,160 @@ describe('UsersController - getUser', () => {
     ).rejects.toThrow(NotFoundException);
 
     expect(usersService.findUserById).toHaveBeenCalledWith('non-existent-id');
+  });
+});
+
+describe('UsersController - getAll', () => {
+  let controller: UsersController;
+  let usersService: UsersService;
+
+  const mockUsersService = {
+    findAllUsers: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [UsersController],
+      providers: [
+        {
+          provide: UsersService,
+          useValue: mockUsersService,
+        },
+      ],
+    }).compile();
+
+    controller = module.get<UsersController>(UsersController);
+    usersService = module.get<UsersService>(UsersService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+
+  describe('getAll', () => {
+    const mockListUserDto: ListUsersDto = {
+      limit: 10,
+    };
+
+    const mockAdminRequest = {
+      user: {
+        userId: 'admin-id',
+        role: UserRole.ADMIN,
+      },
+    } as unknown as AuthenticatedRequest;
+
+    const mockRegularUserRequest = {
+      user: {
+        userId: 'user-id',
+        role: UserRole.PARTICIPANT,
+      },
+    } as unknown as AuthenticatedRequest;
+
+    const mockUsers = [
+      {
+        id: '1',
+        email: 'user1@example.com',
+        name: 'User 1',
+        role: UserRole.PARTICIPANT,
+      },
+      {
+        id: '2',
+        email: 'user2@example.com',
+        name: 'User 2',
+        role: UserRole.ADMIN,
+      },
+    ];
+
+    const mockServiceResponse = {
+      users: mockUsers,
+      total: 2,
+      lastEvaluatedKey: { id: 'last-key' },
+    };
+
+    it('should return users list when called by admin', async () => {
+      mockUsersService.findAllUsers.mockResolvedValue(mockServiceResponse);
+
+      const result = await controller.getAll(mockListUserDto, mockAdminRequest);
+
+      expect(result).toEqual({
+        items: mockUsers.map(user => ({
+          ...user,
+          role: user.role,
+        })),
+        total: 2,
+        lastEvaluatedKey: { id: 'last-key' },
+      });
+      expect(usersService.findAllUsers).toHaveBeenCalledWith(mockListUserDto);
+    });
+
+    it('should throw ForbiddenException when called by non-admin user', async () => {
+      await expect(
+        controller.getAll(mockListUserDto, mockRegularUserRequest),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(usersService.findAllUsers).not.toHaveBeenCalled();
+    });
+
+    it('should handle empty result from service', async () => {
+      const emptyResponse = {
+        users: [],
+        total: 0,
+        lastEvaluatedKey: undefined,
+      };
+
+      mockUsersService.findAllUsers.mockResolvedValue(emptyResponse);
+
+      const result = await controller.getAll(mockListUserDto, mockAdminRequest);
+
+      expect(result).toEqual({
+        items: [],
+        total: 0,
+        lastEvaluatedKey: undefined,
+      });
+    });
+
+    it('should properly map user roles in response', async () => {
+      const usersWithMixedRoles = {
+        users: [
+          {
+            id: '1',
+            email: 'user@example.com',
+            name: 'Regular User',
+            role: UserRole.PARTICIPANT,
+          },
+          {
+            id: '2',
+            email: 'admin@example.com',
+            name: 'Admin User',
+            role: UserRole.ADMIN,
+          },
+        ],
+        total: 2,
+        lastEvaluatedKey: null,
+      };
+
+      mockUsersService.findAllUsers.mockResolvedValue(usersWithMixedRoles);
+
+      const result = await controller.getAll(mockListUserDto, mockAdminRequest);
+
+      expect(result.items[0].role).toBe(UserRole.PARTICIPANT);
+      expect(result.items[1].role).toBe(UserRole.ADMIN);
+    });
+
+    it('should pass query parameters correctly to service', async () => {
+      const customListUserDto: ListUsersDto = {
+        limit: 5,
+      };
+
+      mockUsersService.findAllUsers.mockResolvedValue(mockServiceResponse);
+
+      await controller.getAll(customListUserDto, mockAdminRequest);
+
+      expect(usersService.findAllUsers).toHaveBeenCalledWith(customListUserDto);
+    });
   });
 });
