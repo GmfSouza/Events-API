@@ -104,9 +104,7 @@ export class UsersService {
     }
   }
 
-  async findAllUsers(
-    listUsersDto: ListUsersDto,
-  ): Promise<{
+  async findAllUsers(listUsersDto: ListUsersDto): Promise<{
     users: Omit<User, 'password'>[];
     total: number;
     lastEvaluatedKey?: Record<string, any>;
@@ -298,11 +296,23 @@ export class UsersService {
 
       try {
         this.logger.log(`Sending email verification to ${newUser.email}`);
-        await this.mailService.sendEmailVerification(newUser.name, newUser.email, emailValidationToken);
+        await this.mailService.sendEmailVerification(
+          newUser.name,
+          newUser.email,
+          emailValidationToken,
+        );
       } catch (error) {
-        this.logger.error(`Failed to send email verification to ${newUser.email}:`, error.stack);
+        this.logger.error(
+          `Failed to send email verification to ${newUser.email}:`,
+          error.stack,
+        );
       }
-      const { password: _, emailValidationToken: __, emailValidationTokenExpires: ___, ...userNoSensitiveData } = newUser;
+      const {
+        password: _,
+        emailValidationToken: __,
+        emailValidationTokenExpires: ___,
+        ...userNoSensitiveData
+      } = newUser;
       return userNoSensitiveData;
     } catch (error) {
       this.logger.error(`Error creating user: ${email}`, error);
@@ -359,27 +369,43 @@ export class UsersService {
       expressionAttributeValues[':email'] = updateUserDto.email;
       updateExpressionParts.push('isEmailValidated = :isEmailValidated');
       expressionAttributeValues[':isEmailValidated'] = false;
-      
+
       const newEmailValidationToken = uuidv4();
       const tokenExpirationTime = 24;
       const newEmailValidationTokenExpires = new Date(
         Date.now() + tokenExpirationTime * 60 * 60 * 1000,
       ).toISOString();
-      
-      expressionAttributeNames['#emailValidationToken'] = 'emailValidationToken';
-      expressionAttributeValues[':emailValidationToken'] = newEmailValidationToken;
-      updateExpressionParts.push('#emailValidationToken = :emailValidationToken');
-      
-      expressionAttributeNames['#emailValidationTokenExpires'] = 'emailValidationTokenExpires';
-      expressionAttributeValues[':emailValidationTokenExpires'] = newEmailValidationTokenExpires;
-      updateExpressionParts.push('#emailValidationTokenExpires = :emailValidationTokenExpires');
-      
+
+      expressionAttributeNames['#emailValidationToken'] =
+        'emailValidationToken';
+      expressionAttributeValues[':emailValidationToken'] =
+        newEmailValidationToken;
+      updateExpressionParts.push(
+        '#emailValidationToken = :emailValidationToken',
+      );
+
+      expressionAttributeNames['#emailValidationTokenExpires'] =
+        'emailValidationTokenExpires';
+      expressionAttributeValues[':emailValidationTokenExpires'] =
+        newEmailValidationTokenExpires;
+      updateExpressionParts.push(
+        '#emailValidationTokenExpires = :emailValidationTokenExpires',
+      );
+
       changes = true;
       this.logger.log(`Sending email verification to ${updateUserDto.email}`);
-      this.mailService.sendEmailVerification(user.name, updateUserDto.email, newEmailValidationToken)
-        .catch((error) => {
-          this.logger.error(`Failed to send email verification to ${updateUserDto.email}:`, error.stack);
-        });
+      try {
+        await this.mailService.sendEmailVerification(
+          user.name,
+          updateUserDto.email,
+          newEmailValidationToken,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to send email verification to ${updateUserDto.email}:`,
+          error.stack,
+        );
+      }
     }
 
     if (updateUserDto.password) {
@@ -416,8 +442,12 @@ export class UsersService {
       this.logger.log(
         `User with ID ${userId} updated successfully in DynamoDB.`,
       );
-      const { password, emailValidationToken, emailValidationTokenExpires, ...updatedUserNoSensiveData } =
-        result.Attributes as User;
+      const {
+        password,
+        emailValidationToken,
+        emailValidationTokenExpires,
+        ...updatedUserNoSensiveData
+      } = result.Attributes as User;
       return updatedUserNoSensiveData;
     } catch (error) {
       this.logger.error(
@@ -435,13 +465,13 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if(!user.isActive) {
+    if (!user.isActive) {
       this.logger.warn(`User already soft deleted: ${userId}`);
       throw new BadRequestException('User is already inactive');
     }
 
     this.logger.log(`Soft deleting user: ${userId}`);
-    const updateCommand = new UpdateCommand ({
+    const updateCommand = new UpdateCommand({
       TableName: this.tableName,
       Key: { id: userId },
       UpdateExpression: 'SET #isActive = :isActive, #updatedAt = :updatedAt',
@@ -462,9 +492,15 @@ export class UsersService {
 
       try {
         this.logger.log(`Sending email notification to ${user.email}`);
-        await this.mailService.sendDeletedAccountNotification(user.name, user.email);
+        await this.mailService.sendDeletedAccountNotification(
+          user.name,
+          user.email,
+        );
       } catch (error) {
-        this.logger.error(`Failed to send email notification to ${user.email}:`, error.stack);
+        this.logger.error(
+          `Failed to send email notification to ${user.email}:`,
+          error.stack,
+        );
       }
     } catch (error) {
       this.logger.error(`Error soft deleting user ${userId}:`, error.stack);
