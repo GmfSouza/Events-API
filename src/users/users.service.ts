@@ -459,6 +459,13 @@ export class UsersService {
     try {
       await this.dynamoDbService.docClient.send(updateCommand);
       this.logger.log(`User with ID ${userId} soft deleted successfully.`);
+
+      try {
+        this.logger.log(`Sending email notification to ${user.email}`);
+        await this.mailService.sendDeletedAccountNotification(user.name, user.email);
+      } catch (error) {
+        this.logger.error(`Failed to send email notification to ${user.email}:`, error.stack);
+      }
     } catch (error) {
       this.logger.error(`Error soft deleting user ${userId}:`, error.stack);
       throw new InternalServerErrorException('Failed to soft delete user.');
