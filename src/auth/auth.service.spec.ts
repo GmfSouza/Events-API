@@ -255,3 +255,143 @@ describe('AuthService - generateToken', () => {
     loggerSpy.mockRestore(); 
   });
 });
+
+describe('AuthService - login', () => {
+  let authService: AuthService;
+  let jwtService: JwtService;
+
+  const mockUser = {
+    id: '123',
+    name: 'Test User',
+    email: 'test@example.com',
+    password: 'testPassword!',
+    phone: '1234567890',
+    role: 'user',
+    profileImageUrl: 'http://example.com/image.jpg',
+    isActive: true,
+    isEmailValidated: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const mockJwtService = {
+    sign: jest.fn().mockReturnValue('mock.jwt.token'),
+  };
+
+  const mockUsersService = {
+    findUserByEmail: jest.fn(),
+  };
+
+  const mockDynamoDbService = {
+    docClient: {
+      send: jest.fn(),
+    },
+  };
+
+  const mockConfigService = {
+    get: jest.fn().mockReturnValue('users-table'),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        {
+          provide: JwtService,
+          useValue: mockJwtService,
+        },
+        {
+          provide: UsersService,
+          useValue: mockUsersService,
+        },
+        {
+          provide: DynamoDbService,
+          useValue: mockDynamoDbService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
+      ],
+    }).compile();
+
+    authService = module.get<AuthService>(AuthService);
+    jwtService = module.get<JwtService>(JwtService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should be defined', () => {
+    expect(authService).toBeDefined();
+  });
+
+  it('should successfully generate and return an access token', async () => {
+    const result = await authService.login(mockUser);
+
+    expect(result).toHaveProperty('access_token');
+    expect(jwtService.sign).toHaveBeenCalledWith({
+      sub: mockUser.id,
+      email: mockUser.email,
+      role: mockUser.role,
+    });
+    expect(result.access_token).toBe('mock.jwt.token');
+  });
+
+  it('should throw UnauthorizedException when email is missing', async () => {
+    const userWithoutEmail = {
+      id: '123',
+      name: 'Test User',
+      email: undefined as any,
+      phone: '1234567890',
+      role: 'user',
+      profileImageUrl: 'http://example.com/image.jpg',
+      isActive: true,
+      isEmailValidated: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await expect(authService.login(userWithoutEmail)).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('should throw UnauthorizedException when role is missing', async () => {
+    const userWithoutRole = {
+      id: '123',
+      name: 'Test User',
+      email: 'test@example.com',
+      phone: '1234567890',
+      role: undefined as any,
+      profileImageUrl: 'http://example.com/image.jpg',
+      isActive: true,
+      isEmailValidated: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await expect(authService.login(userWithoutRole)).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('should generate token with correct payload structure', async () => {
+    await authService.login(mockUser);
+
+    expect(jwtService.sign).toHaveBeenCalledWith({
+      sub: mockUser.id,
+      email: mockUser.email,
+      role: mockUser.role,
+    });
+  });
+
+  it('should handle the case when JwtService throws an error', async () => {
+    mockJwtService.sign.mockImplementationOnce(() => {
+      throw new Error('JWT signing error');
+    });
+
+    await expect(authService.login(mockUser)).rejects.toThrow('JWT signing error');
+  });
+});
