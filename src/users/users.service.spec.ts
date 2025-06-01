@@ -5,9 +5,12 @@ import { ConfigService } from '@nestjs/config';
 import { S3Service } from 'src/aws/s3/s3.service';
 import { MailService } from 'src/mail/mail.service';
 import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { ScanCommand } from '@aws-sdk/client-dynamodb';
 import { ConflictException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
+import { ListUsersDto } from './dto/find-users-query.dto';
+import { UserRole } from './enums/user-role.enum';
 
 jest.mock('uuid', () => ({
   v4: jest.fn().mockReturnValue('mocked-uuid'),
@@ -255,7 +258,6 @@ describe('UsersService - findUserByEmail', () => {
   });
 
   it('should return null when DynamoDB query throws an error', async () => {
-    // Arrange
     const email = 'test@example.com';
     mockDynamoDbService.docClient.send.mockRejectedValueOnce(
       new Error('DynamoDB error')
@@ -388,7 +390,7 @@ describe('UsersService - findUserById', () => {
   });
 
   it('should throw InternalServerErrorException when DynamoDB operation fails', async () => {
-    const userId = 'test-user-id';
+    const userId = 'test-id';
     mockDynamoDbService.docClient.send.mockRejectedValueOnce(
       new Error('DynamoDB error')
     );
@@ -416,6 +418,193 @@ describe('UsersService - findUserById', () => {
       expect.objectContaining({
         input: expectedCommand.input,
       })
+    );
+  });
+});
+
+describe('UsersService - findAllUsers', () => {
+  let service: UsersService;
+  let dynamoDbService: DynamoDbService;
+
+  const mockDynamoDbService = {
+    docClient: {
+      send: jest.fn(),
+    },
+  };
+
+  const mockConfigService = {
+    get: jest.fn().mockReturnValue('test-table'),
+  };
+
+  const mockS3Service = {};
+  const mockMailService = {};
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        UsersService,
+        {
+          provide: DynamoDbService,
+          useValue: mockDynamoDbService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
+        {
+          provide: S3Service,
+          useValue: mockS3Service,
+        },
+        {
+          provide: MailService,
+          useValue: mockMailService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<UsersService>(UsersService);
+    dynamoDbService = module.get<DynamoDbService>(DynamoDbService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return users when no filters are applied', async () => {
+    const mockResponse = {
+      Items: [
+        {
+          id: { S: 'test-id' },
+          name: { S: 'test name' },
+          email: { S: 'test@example.com' },
+          role: { S: 'PARTICIPANT' },
+          isActive: { BOOL: true },
+        },
+      ],
+      Count: 1,
+    };
+
+    mockDynamoDbService.docClient.send.mockResolvedValueOnce(mockResponse);
+
+    const listUsersDto: ListUsersDto = {
+      limit: 10,
+    };
+
+    const result = await service.findAllUsers(listUsersDto);
+
+    expect(result.users).toHaveLength(1);
+    expect(result.total).toBe(1);
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalledWith(
+      expect.any(ScanCommand),
+    );
+  });
+
+  it('should filter users by role using QueryCommand', async () => {
+    const mockResponse = {
+      Items: [
+        {
+          id: { S: 'test-id' },
+          name: { S: 'test name' },
+          email: { S: 'test@example.com' },
+          role: { S: 'ADMIN' },
+          isActive: { BOOL: true },
+        },
+      ],
+      Count: 1,
+    };
+
+    mockDynamoDbService.docClient.send.mockResolvedValueOnce(mockResponse);
+
+    const listUsersDto: ListUsersDto = {
+      role: UserRole.ADMIN,
+      limit: 10,
+    };
+
+    const result = await service.findAllUsers(listUsersDto);
+
+    expect(result.users).toHaveLength(1);
+    expect(result.total).toBe(1);
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalledWith(
+      expect.any(QueryCommand),
+    );
+  });
+
+  it('should handle name and email filters', async () => {
+    const mockResponse = {
+      Items: [
+        {
+          id: { S: 'test-id' },
+          name: { S: 'test name' },
+          email: { S: 'test@example.com' },
+          isActive: { BOOL: true },
+        },
+      ],
+      Count: 1,
+    };
+
+    mockDynamoDbService.docClient.send.mockResolvedValueOnce(mockResponse);
+
+    const listUsersDto: ListUsersDto = {
+      name: 'test name',
+      email: 'test@example.com',
+      limit: 10,
+    };
+
+    const result = await service.findAllUsers(listUsersDto);
+
+    expect(result.users).toHaveLength(1);
+    expect(result.total).toBe(1);
+  });
+
+  it('should handle pagination with lastEvaluatedKey', async () => {
+    const mockResponse = {
+      Items: [
+        {
+          id: { S: 'test-id' },
+          name: { S: 'test name' },
+          email: { S: 'test@example.com' },
+          isActive: { BOOL: true },
+        },
+      ],
+      Count: 1,
+      LastEvaluatedKey: { id: { S: 'test-id' } },
+    };
+
+    mockDynamoDbService.docClient.send.mockResolvedValueOnce(mockResponse);
+
+    const listUsersDto: ListUsersDto = {
+      limit: 10,
+      lastEvaluatedKey: JSON.stringify({ id: 'test-id' }),
+    };
+
+    const result = await service.findAllUsers(listUsersDto);
+
+    expect(result.lastEvaluatedKey).toBeDefined();
+    expect(result.users).toHaveLength(1);
+  });
+
+  it('should throw InternalServerException when lastEvaluatedKey is invalid', async () => {
+    const listUsersDto: ListUsersDto = {
+      limit: 10,
+      lastEvaluatedKey: 'invalid-json',
+    };
+
+    await expect(service.findAllUsers(listUsersDto)).rejects.toThrow(
+      InternalServerErrorException,
+    );
+  });
+
+  it('should throw InternalServerException when DynamoDB query fails', async () => {
+    mockDynamoDbService.docClient.send.mockRejectedValueOnce(
+      new Error('DynamoDB error'),
+    );
+
+    const listUsersDto: ListUsersDto = {
+      limit: 10,
+    };
+
+    await expect(service.findAllUsers(listUsersDto)).rejects.toThrow(
+      InternalServerErrorException,
     );
   });
 });
