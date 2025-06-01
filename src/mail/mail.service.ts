@@ -79,4 +79,16 @@ export class MailService {
         await this.sendEmail(userEmail, subject, body, textBody);
     }
 
+    async sendDeletedAccountNotification(user: string, userEmail: string): Promise<void> {
+        const subject = 'Account Deletion Confirmation';
+        const body = `
+            <h1>Account Deleted</h1>
+            <p>Dear ${user},</p>
+            <p>Your account has been successfully deleted.</p>
+        `;
+        const textBody = `Hello ${user}, your account has been successfully deleted.`;
+
+        await this.sendEmail(userEmail, subject, body, textBody);
+    }
+
 }
