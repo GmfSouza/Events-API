@@ -4,14 +4,18 @@ import { DynamoDbService } from 'src/aws/dynamodb/dynamodb.service';
 import { ConfigService } from '@nestjs/config';
 import { S3Service } from 'src/aws/s3/s3.service';
 import { MailService } from 'src/mail/mail.service';
-import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ScanCommand } from '@aws-sdk/client-dynamodb';
-import { ConflictException, InternalServerErrorException, Logger } from '@nestjs/common';
+import { ConflictException, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
 import { ListUsersDto } from './dto/find-users-query.dto';
 import { UserRole } from './enums/user-role.enum';
+import { User } from './interfaces/user.interface';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { hash } from 'bcrypt';
 
+jest.mock('bcrypt');
 jest.mock('uuid', () => ({
   v4: jest.fn().mockReturnValue('mocked-uuid'),
 }));
@@ -606,5 +610,196 @@ describe('UsersService - findAllUsers', () => {
     await expect(service.findAllUsers(listUsersDto)).rejects.toThrow(
       InternalServerErrorException,
     );
+  });
+});
+
+describe('UsersService - update', () => {
+  let service: UsersService;
+  let dynamoDbService: jest.Mocked<DynamoDbService>;
+  let mailService: jest.Mocked<MailService>;
+
+  const mockUser: User = {
+    id: 'test-id',
+    name: 'Test User',
+    email: 'test@example.com',
+    password: 'hashedPassword',
+    phone: '1234567890',
+    role: 'user',
+    isActive: true,
+    isEmailValidated: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        UsersService,
+        {
+          provide: DynamoDbService,
+          useValue: {
+            docClient: {
+              send: jest.fn(),
+            },
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockReturnValue('users-table'),
+          },
+        },
+        {
+          provide: S3Service,
+          useValue: {},
+        },
+        {
+          provide: MailService,
+          useValue: {
+            sendEmailVerification: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<UsersService>(UsersService);
+    dynamoDbService = module.get(DynamoDbService);
+    mailService = module.get(MailService);
+
+    jest.spyOn(service, 'findUserById').mockImplementation(async (id) => 
+      id === mockUser.id ? mockUser : null
+    );
+    jest.spyOn(service, 'findUserByEmail').mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should successfully update user name', async () => {
+    const updateUserDto: UpdateUserDto = {
+      name: 'Updated Name',
+    };
+
+    const mockResponse = {
+      Attributes: {
+        ...mockUser,
+        name: updateUserDto.name,
+        updatedAt: expect.any(String),
+      },
+    };
+
+    (dynamoDbService.docClient.send as jest.Mock).mockResolvedValueOnce(mockResponse);
+
+    const result = await service.update(mockUser.id, updateUserDto);
+
+    expect(dynamoDbService.docClient.send).toHaveBeenCalledWith(
+      expect.any(UpdateCommand)
+    );
+    expect(result.name).toBe(updateUserDto.name);
+  });
+
+  it('should throw NotFoundException when user not found', async () => {
+    const updateUserDto: UpdateUserDto = {
+      name: 'Updated Name',
+    };
+
+    jest.spyOn(service, 'findUserById').mockResolvedValueOnce(null);
+
+    await expect(service.update('non-existent-id', updateUserDto))
+      .rejects
+      .toThrow(NotFoundException);
+  });
+
+  it('should throw ConflictException when updating to existing email', async () => {
+    const updateUserDto: UpdateUserDto = {
+      email: 'existing@example.com',
+    };
+
+    jest.spyOn(service, 'findUserByEmail').mockResolvedValueOnce({
+      ...mockUser,
+      email: updateUserDto.email ?? '',
+    });
+
+    await expect(service.update(mockUser.id, updateUserDto))
+      .rejects
+      .toThrow(ConflictException);
+  });
+
+  it('should handle password update correctly', async () => {
+    const updateUserDto: UpdateUserDto = {
+      password: 'newPassword123',
+    };
+
+    const hashedPassword = 'hashedNewPassword';
+    (hash as jest.Mock).mockResolvedValueOnce(hashedPassword);
+
+    const mockResponse = {
+      Attributes: {
+        ...mockUser,
+        password: hashedPassword,
+        updatedAt: expect.any(String),
+      },
+    };
+
+    (dynamoDbService.docClient.send as jest.Mock).mockResolvedValueOnce(mockResponse);
+
+    const result = await service.update(mockUser.id, updateUserDto);
+
+    expect(hash).toHaveBeenCalledWith(updateUserDto.password, 10);
+    expect(result).not.toHaveProperty('password');
+  });
+
+  it('should handle email update with verification', async () => {
+    const updateUserDto: UpdateUserDto = {
+      email: 'newemail@example.com',
+    };
+
+    const mockResponse = {
+      Attributes: {
+        ...mockUser,
+        email: updateUserDto.email ?? '',
+        isEmailValidated: false,
+        emailValidationToken: 'mocked-uuid',
+        emailValidationTokenExpires: expect.any(String),
+        updatedAt: expect.any(String),
+      },
+    };
+
+    (dynamoDbService.docClient.send as jest.Mock).mockResolvedValueOnce(mockResponse);
+
+    const result = await service.update(mockUser.id, updateUserDto);
+
+    expect(result.email).toBe(updateUserDto.email);
+    expect(result.isEmailValidated).toBe(false);
+    expect(mailService.sendEmailVerification).toHaveBeenCalled();
+  });
+
+  it('should return unchanged user when no changes detected', async () => {
+    const updateUserDto: UpdateUserDto = {
+      name: mockUser.name,
+      phone: mockUser.phone,
+    };
+
+    const result = await service.update(mockUser.id, updateUserDto);
+
+    expect(result).toEqual(expect.objectContaining({
+      id: mockUser.id,
+      name: mockUser.name,
+      phone: mockUser.phone,
+    }));
+    expect(dynamoDbService.docClient.send).not.toHaveBeenCalled();
+  });
+
+  it('should handle DynamoDB errors gracefully', async () => {
+    const updateUserDto: UpdateUserDto = {
+      name: 'Updated Name',
+    };
+
+    (dynamoDbService.docClient.send as jest.Mock).mockRejectedValueOnce(new Error('DynamoDB error'));
+
+    await expect(service.update(mockUser.id, updateUserDto))
+      .rejects
+      .toThrow(InternalServerErrorException);
   });
 });
