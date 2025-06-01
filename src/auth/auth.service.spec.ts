@@ -5,9 +5,10 @@ import { JwtService } from '@nestjs/jwt';
 import { DynamoDbService } from '../aws/dynamodb/dynamodb.service';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../users/interfaces/user.interface';
-import { NotFoundException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException, UnauthorizedException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 jest.mock('bcrypt');
 
@@ -393,5 +394,141 @@ describe('AuthService - login', () => {
     });
 
     await expect(authService.login(mockUser)).rejects.toThrow('JWT signing error');
+  });
+});
+
+describe('AuthService - validateTokenEmail', () => {
+  let authService: AuthService;
+  let dynamoDbService: DynamoDbService;
+
+  const mockDynamoDbService = {
+    docClient: {
+      send: jest.fn(),
+    },
+  };
+
+  const mockConfigService = {
+    get: jest.fn().mockReturnValue('test-table'),
+  };
+
+  const mockUsersService = {};
+  const mockJwtService = {};
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        {
+          provide: UsersService,
+          useValue: mockUsersService,
+        },
+        {
+          provide: JwtService,
+          useValue: mockJwtService,
+        },
+        {
+          provide: DynamoDbService,
+          useValue: mockDynamoDbService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
+      ],
+    }).compile();
+
+    authService = module.get<AuthService>(AuthService);
+    dynamoDbService = module.get<DynamoDbService>(DynamoDbService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should successfully validate email token', async () => {
+    const mockUser = {
+      id: 'test-id',
+      email: 'test@example.com',
+      isEmailValidated: false,
+      emailValidationTokenExpires: new Date(Date.now() + 3600000).toISOString(),
+    };
+
+    mockDynamoDbService.docClient.send
+      .mockImplementationOnce(() => Promise.resolve({ Items: [mockUser] }))
+      .mockImplementationOnce(() => Promise.resolve({}));
+
+    await expect(authService.validateTokenEmail('valid-token')).resolves.not.toThrow();
+
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalledTimes(2);
+    expect(mockDynamoDbService.docClient.send).toHaveBeenNthCalledWith(
+      1,
+      expect.any(QueryCommand)
+    );
+    expect(mockDynamoDbService.docClient.send).toHaveBeenNthCalledWith(
+      2,
+      expect.any(UpdateCommand)
+    );
+  });
+
+  it('should throw BadRequestException when token is invalid', async () => {
+    mockDynamoDbService.docClient.send.mockResolvedValueOnce({ Items: [] });
+
+    await expect(authService.validateTokenEmail('invalid-token'))
+      .rejects
+      .toThrow(BadRequestException);
+  });
+
+  it('should throw BadRequestException when token is expired', async () => {
+    const mockUser = {
+      id: 'test-id',
+      email: 'test@example.com',
+      isEmailValidated: false,
+      emailValidationTokenExpires: new Date(Date.now() - 3600000).toISOString(), // expired token
+    };
+
+    mockDynamoDbService.docClient.send.mockResolvedValueOnce({ Items: [mockUser] });
+
+    await expect(authService.validateTokenEmail('expired-token'))
+      .rejects
+      .toThrow(BadRequestException);
+  });
+
+  it('should return early if email is already validated', async () => {
+    const mockUser = {
+      id: 'test-id',
+      email: 'test@example.com',
+      isEmailValidated: true,
+      emailValidationTokenExpires: new Date(Date.now() + 3600000).toISOString(),
+    };
+
+    mockDynamoDbService.docClient.send.mockResolvedValueOnce({ Items: [mockUser] });
+
+    await expect(authService.validateTokenEmail('token')).resolves.not.toThrow();
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('should throw InternalServerErrorException when query fails', async () => {
+    mockDynamoDbService.docClient.send.mockRejectedValueOnce(new Error('DynamoDB error'));
+
+    await expect(authService.validateTokenEmail('token'))
+      .rejects
+      .toThrow(InternalServerErrorException);
+  });
+
+  it('should throw InternalServerErrorException when update fails', async () => {
+    const mockUser = {
+      id: 'test-id',
+      email: 'test@example.com',
+      isEmailValidated: false,
+      emailValidationTokenExpires: new Date(Date.now() + 3600000).toISOString(),
+    };
+
+    mockDynamoDbService.docClient.send
+      .mockResolvedValueOnce({ Items: [mockUser] })
+      .mockRejectedValueOnce(new Error('Update failed'));
+
+    await expect(authService.validateTokenEmail('token'))
+      .rejects
+      .toThrow(InternalServerErrorException);
   });
 });
