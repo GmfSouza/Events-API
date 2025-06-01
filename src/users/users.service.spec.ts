@@ -4,7 +4,7 @@ import { DynamoDbService } from 'src/aws/dynamodb/dynamodb.service';
 import { ConfigService } from '@nestjs/config';
 import { S3Service } from 'src/aws/s3/s3.service';
 import { MailService } from 'src/mail/mail.service';
-import { QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { ConflictException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
@@ -288,6 +288,133 @@ describe('UsersService - findUserByEmail', () => {
           IndexName: 'email-index',
           Limit: 1,
         }),
+      })
+    );
+  });
+});
+
+describe('UsersService - findUserById', () => {
+  let service: UsersService;
+  let dynamoDbService: DynamoDbService;
+
+  const mockUser = {
+    id: 'test-id',
+    name: 'Test User',
+    email: 'test@example.com',
+    role: 'user',
+    isActive: true,
+  };
+
+  const mockDynamoDbService = {
+    docClient: {
+      send: jest.fn(),
+    },
+  };
+
+  const mockConfigService = {
+    get: jest.fn().mockReturnValue('test-table-name'),
+  };
+
+  const mockS3Service = {};
+  const mockMailService = {};
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        UsersService,
+        {
+          provide: DynamoDbService,
+          useValue: mockDynamoDbService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
+        {
+          provide: S3Service,
+          useValue: mockS3Service,
+        },
+        {
+          provide: MailService,
+          useValue: mockMailService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<UsersService>(UsersService);
+    dynamoDbService = module.get<DynamoDbService>(DynamoDbService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  it('should successfully find a user by ID', async () => {
+    const userId = 'test-id';
+    mockDynamoDbService.docClient.send.mockResolvedValueOnce({
+      Item: mockUser,
+    });
+
+    const result = await service.findUserById(userId);
+
+    expect(result).toEqual(mockUser);
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalledWith(
+      expect.any(GetCommand)
+    );
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: {
+          TableName: 'test-table-name',
+          Key: { id: userId },
+        },
+      })
+    );
+  });
+
+  it('should return null when user is not found', async () => {
+    const userId = 'non-existent-id';
+    mockDynamoDbService.docClient.send.mockResolvedValueOnce({
+      Item: null,
+    });
+
+    const result = await service.findUserById(userId);
+
+    expect(result).toBeNull();
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('should throw InternalServerErrorException when DynamoDB operation fails', async () => {
+    const userId = 'test-user-id';
+    mockDynamoDbService.docClient.send.mockRejectedValueOnce(
+      new Error('DynamoDB error')
+    );
+
+    await expect(service.findUserById(userId)).rejects.toThrow(
+      InternalServerErrorException
+    );
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('should call DynamoDB with correct parameters', async () => {
+    const userId = 'test-id';
+    mockDynamoDbService.docClient.send.mockResolvedValueOnce({
+      Item: mockUser,
+    });
+
+    await service.findUserById(userId);
+
+    const expectedCommand = new GetCommand({
+      TableName: 'test-table-name',
+      Key: { id: userId },
+    });
+
+    expect(mockDynamoDbService.docClient.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expectedCommand.input,
       })
     );
   });
