@@ -13,6 +13,8 @@ import {
   UploadedFile,
   UseInterceptors,
   Param,
+  Get,
+  NotFoundException,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -61,6 +63,20 @@ export class EventsController {
 
     return event;
   }
+
+  @Get(':id')
+  @HttpCode(200)
+  async getEvent(@Param('id') eventId: string): Promise<EventResponseDto> {
+    this.logger.log(`Fetching event with ID: ${eventId}`);
+    const event = await this.eventsService.findEventById(eventId);
+    if (!event) {
+      this.logger.warn(`Event not found with ID: ${eventId}`);
+      throw new NotFoundException('Event not found');
+    }
+
+    return event;
+  }
+
   @Patch(':id')
   @HttpCode(200)
   @UseInterceptors(FileInterceptor('eventImage'))
