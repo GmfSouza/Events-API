@@ -188,8 +188,15 @@ export class UsersController {
     });
   }
 
+  @ApiBearerAuth()
   @Delete(':id')
   @HttpCode(204)
+  @ApiOperation({ summary: 'Soft delete a user (Admin or self)' })
+  @ApiParam({ name: 'id', description: 'ID of the user to be soft deleted (UUID)', type: String })
+  @ApiResponse({ status: 204, description: 'User deleted successfully.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  @ApiResponse({ status: 403, description: 'Access denied.' })
+  @ApiResponse({ status: 400, description: 'User is already inactive.' })
   async delete(@Param('id') id: string, @Req() request: AuthenticatedRequest): Promise<void> {
     this.logger.log(`Deleting user: ${id}`);
     const authUser = request.user;
