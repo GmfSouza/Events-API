@@ -32,7 +32,7 @@ export class S3Service {
     );
     this.s3EventImagePath = this.configService.get<string>(
       'S3_EVENT_IMAGE_PATH',
-      'event-images/',
+      'events-images/',
     );
 
     if (!this.awsRegion || !this.s3BucketName) {
@@ -67,7 +67,7 @@ export class S3Service {
 
   async uploadFile(
     file: Express.Multer.File,
-    destinationPath: 'user-profiles' | 'event-images' | string,
+    destinationPath: 'user-profiles' | 'events-images' | string,
     entityId?: string,
   ): Promise<S3UploadResponse> {
     const fileExtension = path.extname(file.originalname);
