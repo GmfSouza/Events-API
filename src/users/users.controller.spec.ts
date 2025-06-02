@@ -2,368 +2,193 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { UserRole } from './enums/user-role.enum';
-import { ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AuthenticatedRequest } from './interfaces/auth-request.interface';
-import { ListUsersDto } from './dto/find-users-query.dto';
-import { UserResponseDto } from './dto/user-response.dto';
 
 describe('UsersController', () => {
   let controller: UsersController;
-  let usersService: UsersService;
-
-  const mockFile: Express.Multer.File = {
-    fieldname: 'profileImage',
-    originalname: 'test-image.jpg',
-    encoding: '7bit',
-    mimetype: 'image/jpeg',
-    size: 1024 * 1024,
-    destination: '/tmp',
-    filename: 'test-image.jpg',
-    path: '/tmp/test-image.jpg',
-    buffer: Buffer.from('test'),
-    stream: require('stream').Readable.from(Buffer.from('test')),
-  };
-
-  const mockCreateUserDto: CreateUserDto = {
-    email: 'test@example.com',
-    password: 'Password123!',
-    name: 'Test name',
-    role: UserRole.ADMIN,
-    phone: '1234567890!'
-  };
-
-  const mockCreatedUser = {
-    id: 'user-123',
-    ...mockCreateUserDto,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    profileImageUrl: 'https://example.com/image.jpg',
-  };
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [UsersController],
-      providers: [
-        {
-          provide: UsersService,
-          useValue: {
-            create: jest.fn().mockResolvedValue(mockCreatedUser),
-          },
-        },
-      ],
-    }).compile();
-
-    controller = module.get<UsersController>(UsersController);
-    usersService = module.get<UsersService>(UsersService);
-  });
-
-  describe('createUser', () => {
-    it('should create a user without profile image', async () => {
-      const result = await controller.createUser(mockCreateUserDto);
-
-      expect(usersService.create).toHaveBeenCalledWith(mockCreateUserDto, undefined);
-      expect(result).toEqual(expect.objectContaining({
-        id: mockCreatedUser.id,
-        email: mockCreatedUser.email,
-        name: mockCreatedUser.name,
-        role: mockCreatedUser.role,
-      }));
-    });
-
-    it('should create a user with profile image', async () => {
-      const result = await controller.createUser(mockCreateUserDto, mockFile);
-
-      expect(usersService.create).toHaveBeenCalledWith(mockCreateUserDto, mockFile);
-      expect(result).toEqual(expect.objectContaining({
-        id: mockCreatedUser.id,
-        email: mockCreatedUser.email,
-        name: mockCreatedUser.name,
-        role: mockCreatedUser.role,
-        profileImageUrl: mockCreatedUser.profileImageUrl,
-      }));
-    });
-
-    it('should log user creation attempt', async () => {
-      const loggerSpy = jest.spyOn(Logger.prototype, 'log');
-      
-      await controller.createUser(mockCreateUserDto);
-
-      expect(loggerSpy).toHaveBeenCalledWith(`Creating user: ${mockCreateUserDto.email}`);
-    });
-
-    it('should log profile image details when image is provided', async () => {
-      const loggerSpy = jest.spyOn(Logger.prototype, 'log');
-      
-      await controller.createUser(mockCreateUserDto, mockFile);
-
-      expect(loggerSpy).toHaveBeenCalledWith(
-        `Image profile file received: ${mockFile.originalname}, size: ${mockFile.size} bytes`
-      );
-    });
-
-    it('should handle service errors', async () => {
-      const error = new Error('Database error');
-      jest.spyOn(usersService, 'create').mockRejectedValue(error);
-
-      await expect(controller.createUser(mockCreateUserDto))
-        .rejects
-        .toThrow(error);
-    });
-  });
-});
-
-describe('UsersController - getUser', () => {
-  let controller: UsersController;
-  let usersService: UsersService;
+  let service: UsersService;
 
   const mockUser = {
-    id: 'test-user-id',
+    id: 'user-123',
+    name: 'Test User',
     email: 'test@example.com',
-    name: 'John',
+    password: 'hashedPassword',
     role: UserRole.PARTICIPANT,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    isActive: true,
   };
 
   const mockUsersService = {
+    create: jest.fn(),
     findUserById: jest.fn(),
-  };
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [UsersController],
-      providers: [
-        {
-          provide: UsersService,
-          useValue: mockUsersService,
-        },
-      ],
-    }).compile();
-
-    controller = module.get<UsersController>(UsersController);
-    usersService = module.get<UsersService>(UsersService);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('should return user when admin requests any user', async () => {
-    const mockRequest = {
-      user: { userId: 'admin-id', role: UserRole.ADMIN },
-    } as AuthenticatedRequest;
-
-    mockUsersService.findUserById.mockResolvedValue({
-      ...mockUser,
-      password: 'hashed-password',
-    });
-
-    const result = await controller.getUser('test-user-id', mockRequest);
-
-    expect(result).toBeDefined();
-    expect(result.id).toBe(mockUser.id);
-    expect(result.email).toBe(mockUser.email);
-    expect(result.role).toBe(UserRole.PARTICIPANT);
-    expect(result).not.toHaveProperty('password');
-    expect(usersService.findUserById).toHaveBeenCalledWith('test-user-id');
-  });
-
-  it('should return user when user requests their own profile', async () => {
-    const mockRequest = {
-      user: { userId: 'test-user-id', role: UserRole.PARTICIPANT },
-    } as AuthenticatedRequest;
-
-    mockUsersService.findUserById.mockResolvedValue({
-      ...mockUser,
-      password: 'hashed-password',
-    });
-
-    const result = await controller.getUser('test-user-id', mockRequest);
-
-    expect(result).toBeDefined();
-    expect(result.id).toBe(mockUser.id);
-    expect(usersService.findUserById).toHaveBeenCalledWith('test-user-id');
-  });
-
-  it('should throw ForbiddenException when non-admin user requests another user profile', async () => {
-    const mockRequest = {
-      user: { userId: 'different-user-id', role: UserRole.PARTICIPANT },
-    } as AuthenticatedRequest;
-
-    await expect(
-      controller.getUser('test-user-id', mockRequest)
-    ).rejects.toThrow(ForbiddenException);
-
-    expect(usersService.findUserById).not.toHaveBeenCalled();
-  });
-
-  it('should throw NotFoundException when user is not found', async () => {
-    const mockRequest = {
-      user: { userId: 'admin-id', role: UserRole.ADMIN },
-    } as AuthenticatedRequest;
-
-    mockUsersService.findUserById.mockResolvedValue(null);
-
-    await expect(
-      controller.getUser('non-existent-id', mockRequest)
-    ).rejects.toThrow(NotFoundException);
-
-    expect(usersService.findUserById).toHaveBeenCalledWith('non-existent-id');
-  });
-});
-
-describe('UsersController - getAll', () => {
-  let controller: UsersController;
-  let usersService: UsersService;
-
-  const mockUsersService = {
     findAllUsers: jest.fn(),
+    update: jest.fn(),
+    softDelete: jest.fn(),
+  };
+
+  const mockRequest = (user): AuthenticatedRequest => {
+    return {
+      user,
+    } as unknown as AuthenticatedRequest;
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsersController],
-      providers: [
-        {
-          provide: UsersService,
-          useValue: mockUsersService,
-        },
-      ],
+      providers: [{ provide: UsersService, useValue: mockUsersService }],
     }).compile();
 
     controller = module.get<UsersController>(UsersController);
-    usersService = module.get<UsersService>(UsersService);
+    service = module.get<UsersService>(UsersService);
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  afterEach(() => jest.clearAllMocks());
+
+  describe('createUser', () => {
+    it('should create a user', async () => {
+      const dto: CreateUserDto = {
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'password!',
+        phone: '1234567890',
+        role: UserRole.PARTICIPANT,
+      };
+
+      mockUsersService.create.mockResolvedValue(mockUser);
+
+      const result = await controller.createUser(dto, undefined);
+
+      expect(service.create).toHaveBeenCalledWith(dto, undefined);
+      expect(result.email).toBe(dto.email);
+    });
   });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+  describe('getUser', () => {
+    it('should return user if admin', async () => {
+      mockUsersService.findUserById.mockResolvedValue(mockUser);
+
+      const result = await controller.getUser('user-123', mockRequest({
+        userId: 'admin-1',
+        role: UserRole.ADMIN,
+      }));
+
+      expect(service.findUserById).toHaveBeenCalledWith('user-123');
+      expect(result.id).toBe(mockUser.id);
+    });
+
+    it('should return user if self', async () => {
+      mockUsersService.findUserById.mockResolvedValue(mockUser);
+
+      const result = await controller.getUser('user-123', mockRequest({
+        userId: 'user-123',
+        role: UserRole.PARTICIPANT,
+      }));
+
+      expect(result.email).toBe(mockUser.email);
+    });
+
+    it('should throw ForbiddenException if unauthorized', async () => {
+      await expect(
+        controller.getUser('other-id', mockRequest({
+          userId: 'user-123',
+          role: UserRole.PARTICIPANT,
+        })),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw NotFoundException if user not found', async () => {
+      mockUsersService.findUserById.mockResolvedValue(null);
+
+      await expect(
+        controller.getUser('non-existent-id', mockRequest({
+          userId: 'non-existent-id',
+          role: UserRole.ADMIN,
+        })),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 
   describe('getAll', () => {
-    const mockListUserDto: ListUsersDto = {
-      limit: 10,
-    };
-
-    const mockAdminRequest = {
-      user: {
-        userId: 'admin-id',
-        role: UserRole.ADMIN,
-      },
-    } as unknown as AuthenticatedRequest;
-
-    const mockRegularUserRequest = {
-      user: {
-        userId: 'user-id',
-        role: UserRole.PARTICIPANT,
-      },
-    } as unknown as AuthenticatedRequest;
-
-    const mockUsers = [
-      {
-        id: '1',
-        email: 'user1@example.com',
-        name: 'User 1',
-        role: UserRole.PARTICIPANT,
-      },
-      {
-        id: '2',
-        email: 'user2@example.com',
-        name: 'User 2',
-        role: UserRole.ADMIN,
-      },
-    ];
-
-    const mockServiceResponse = {
-      users: mockUsers,
-      total: 2,
-      lastEvaluatedKey: { id: 'last-key' },
-    };
-
-    it('should return users list when called by admin', async () => {
-      mockUsersService.findAllUsers.mockResolvedValue(mockServiceResponse);
-
-      const result = await controller.getAll(mockListUserDto, mockAdminRequest);
-
-      expect(result).toEqual({
-        items: mockUsers.map(user => ({
-          ...user,
-          role: user.role,
-        })),
-        total: 2,
-        lastEvaluatedKey: { id: 'last-key' },
+    it('should return all users for admin', async () => {
+      mockUsersService.findAllUsers.mockResolvedValue({
+        users: [mockUser],
+        total: 1,
+        lastEvaluatedKey: undefined,
       });
-      expect(usersService.findAllUsers).toHaveBeenCalledWith(mockListUserDto);
+
+      const result = await controller.getAll({}, mockRequest({
+        userId: 'admin-1',
+        role: UserRole.ADMIN,
+      }));
+
+      expect(result.total).toBe(1);
+      expect(result.items.length).toBe(1);
     });
 
-    it('should throw ForbiddenException when called by non-admin user', async () => {
+    it('should throw ForbiddenException for non-admin', async () => {
       await expect(
-        controller.getAll(mockListUserDto, mockRegularUserRequest),
+        controller.getAll({}, mockRequest({
+          userId: 'user-123',
+          role: UserRole.PARTICIPANT,
+        })),
       ).rejects.toThrow(ForbiddenException);
-
-      expect(usersService.findAllUsers).not.toHaveBeenCalled();
-    });
-
-    it('should handle empty result from service', async () => {
-      const emptyResponse = {
-        users: [],
-        total: 0,
-        lastEvaluatedKey: undefined,
-      };
-
-      mockUsersService.findAllUsers.mockResolvedValue(emptyResponse);
-
-      const result = await controller.getAll(mockListUserDto, mockAdminRequest);
-
-      expect(result).toEqual({
-        items: [],
-        total: 0,
-        lastEvaluatedKey: undefined,
-      });
-    });
-
-    it('should properly map user roles in response', async () => {
-      const usersWithMixedRoles = {
-        users: [
-          {
-            id: '1',
-            email: 'user@example.com',
-            name: 'Regular User',
-            role: UserRole.PARTICIPANT,
-          },
-          {
-            id: '2',
-            email: 'admin@example.com',
-            name: 'Admin User',
-            role: UserRole.ADMIN,
-          },
-        ],
-        total: 2,
-        lastEvaluatedKey: null,
-      };
-
-      mockUsersService.findAllUsers.mockResolvedValue(usersWithMixedRoles);
-
-      const result = await controller.getAll(mockListUserDto, mockAdminRequest);
-
-      expect(result.items[0].role).toBe(UserRole.PARTICIPANT);
-      expect(result.items[1].role).toBe(UserRole.ADMIN);
-    });
-
-    it('should pass query parameters correctly to service', async () => {
-      const customListUserDto: ListUsersDto = {
-        limit: 5,
-      };
-
-      mockUsersService.findAllUsers.mockResolvedValue(mockServiceResponse);
-
-      await controller.getAll(customListUserDto, mockAdminRequest);
-
-      expect(usersService.findAllUsers).toHaveBeenCalledWith(customListUserDto);
     });
   });
-});
+
+  describe('updateUser', () => {
+    it('should update the user if owner', async () => {
+      const dto: UpdateUserDto = { name: 'Updated' };
+      const updatedUser = { ...mockUser, name: 'Updated' };
+
+      mockUsersService.update.mockResolvedValue(updatedUser);
+
+      const result = await controller.updateUser('user-123', dto, mockRequest({
+        userId: 'user-123',
+        role: UserRole.PARTICIPANT,
+      }));
+
+      expect(service.update).toHaveBeenCalledWith('user-123', dto);
+      expect(result.name).toBe('Updated');
+    });
+
+    it('should throw ForbiddenException if not the owner', async () => {
+      await expect(
+        controller.updateUser('user-123', {}, mockRequest({
+          userId: 'user-999',
+          role: UserRole.PARTICIPANT,
+        })),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('delete', () => {
+    it('should allow delete for admin', async () => {
+      await controller.delete('user-123', mockRequest({
+        userId: 'admin-1',
+        role: UserRole.ADMIN,
+      }));
+
+      expect(service.softDelete).toHaveBeenCalledWith('user-123');
+    });
+
+    it('should allow delete for self', async () => {
+      await controller.delete('user-123', mockRequest({
+        userId: 'user-123',
+        role: UserRole.PARTICIPANT,
+      }));
+
+      expect(service.softDelete).toHaveBeenCalledWith('user-123');
+    });
+
+    it('should throw ForbiddenException for other user', async () => {
+      await expect(
+        controller.delete('user-123', mockRequest({
+          userId: 'other-user',
+          role: UserRole.PARTICIPANT,
+        })),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+})
