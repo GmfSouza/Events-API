@@ -67,13 +67,14 @@ export class EventsService {
 
         try {
             const response = await this.dynamoDBService.docClient.send(command);
-            if (response.Item) {
-                this.logger.log(`Event found: ${eventId}`);
-                return response.Item as Event;
-            } else {
-                this.logger.warn(`Event not found: ${eventId}`);
+            if (!response.Item) {
+                this.logger.warn(`Event not found by ID: ${eventId}`);
                 return null;
             }
+
+            this.logger.log(`Event found by ID: ${eventId}`);
+            const event = response.Item as Event;
+            return event;
         } catch (error) {
             this.logger.error(`Error finding event by ID: ${eventId}`, error.stack);
             throw new InternalServerErrorException('Error finding event');
