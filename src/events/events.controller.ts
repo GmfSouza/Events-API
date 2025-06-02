@@ -7,10 +7,12 @@ import {
   Logger,
   MaxFileSizeValidator,
   ParseFilePipe,
+  Patch,
   Post,
   Req,
   UploadedFile,
   UseInterceptors,
+  Param,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -18,6 +20,7 @@ import { AuthenticatedRequest } from 'src/users/interfaces/auth-request.interfac
 import { FileInterceptor } from '@nestjs/platform-express';
 import { EventResponseDto } from './dto/event-response.dto';
 import { UserRole } from 'src/users/enums/user-role.enum';
+import { UpdateEventDto } from './dto/update-event.dto';
 
 @Controller('events')
 export class EventsController {
@@ -56,6 +59,37 @@ export class EventsController {
     const event = await this.eventsService.create(createEventDto, authUser.userId, eventImage);
     this.logger.log(`Event created successfully: ${event.name}`);
 
-    return new EventResponseDto(event);
+    return event;
+  }
+  @Patch(':id')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('eventImage'))
+  async updateEvent(
+    @Param('id') eventId: string,
+    @Body() updateEventDto: UpdateEventDto,
+    @Req() request: AuthenticatedRequest,
+    @UploadedFile(
+        new ParseFilePipe({
+            validators: [
+                new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 }),
+                new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/i })
+            ],
+            fileIsRequired: false
+        })
+    )
+    eventImage?: Express.Multer.File
+  ): Promise<EventResponseDto> {
+    const authUser = request.user;
+    this.logger.log(`Updating event with ID: ${eventId}`);
+    
+    if (authUser.role !== UserRole.ORGANIZER && authUser.role !== UserRole.ADMIN) {
+      this.logger.warn(`Unauthorized access attempt by user: ${authUser.userId} to update event ${eventId}`);
+      throw new ForbiddenException('You do not have permission to access this resource');
+    }
+
+    const updatedEvent = await this.eventsService.update(eventId, updateEventDto, authUser.userId, eventImage);
+    this.logger.log(`Event with ID ${eventId} updated successfully`);
+
+    return updatedEvent;
   }
 }
