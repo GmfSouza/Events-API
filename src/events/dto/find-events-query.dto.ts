@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsInt, Min, Max, IsISO8601, IsDateString, Matches } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsInt, Min, Max, IsISO8601, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { EventStatus } from '../enums/event-status.enum';
@@ -8,16 +8,12 @@ export class ListEventsDto {
   @IsString()
   name?: string;
 
-  @Matches(/^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/25$/, {
-    message: 'Date must be in the correct format DD/MM/25',
-  })
   @IsOptional()
+  @IsDateString({}, { message: 'Date must be in the correct format YYYY-MM-DD' })
   dateBefore?: string;
 
   @IsOptional()
-  @Matches(/^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/25$/, {
-    message: 'Date must be in the correct format DD/MM/25',
-  })
+  @IsDateString({}, { message: 'Date must be in the correct format YYYY-MM-DD' })
   dateAfter?: string;
 
   @IsOptional()
