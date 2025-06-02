@@ -428,4 +428,67 @@ export class EventsService {
       throw new InternalServerErrorException('Error updating event');
     }
   }
+  async softDelete(eventId: string, requesterId: string): Promise<void> {
+    this.logger.log(
+      `Soft deleting event with ID: ${eventId}, requesterId: ${requesterId}`,
+    );
+
+    const event = await this.findEventById(eventId);
+    if (!event) {
+      this.logger.warn(`Event not found: ${eventId}`);
+      throw new NotFoundException('Event not found');
+    }
+
+    if (event.status === EventStatus.INACTIVE) {
+      this.logger.warn(`Event already inactive: ${eventId}`);
+      throw new BadRequestException('Event already inactive');
+    }
+
+    const requester = await this.usersService.findUserById(requesterId);
+
+    if (!requester) {
+      this.logger.warn(`Requester with ID ${requesterId} not found`);
+      throw new NotFoundException('Requester ID not found');
+    }
+
+    if (!requester.isActive) {
+      this.logger.warn(`Requester with ID ${requesterId} is not active`);
+      throw new ForbiddenException('Your account is not active');
+    }
+
+    const isAdmin = requester.role === UserRole.ADMIN;
+    const isOwner = event.organizerId === requester.id;
+    if (!(isAdmin || isOwner)) {
+      this.logger.warn(
+        `User with ID ${requesterId} is not authorized to delete this event`,
+      );
+      throw new ForbiddenException(
+        'You are not authorized to delete this event',
+      );
+    }
+
+    const command = new UpdateCommand({
+        TableName: this.eventsTable,
+        Key: { id: eventId },
+        UpdateExpression: 'SET #statusAttr = :status, #updatedAt = :updatedAt',
+        ExpressionAttributeNames: {
+          '#statusAttr': 'status',
+          '#updatedAt': 'updatedAt',
+        },
+        ExpressionAttributeValues: {
+          ':status': EventStatus.INACTIVE,
+          ':updatedAt': new Date().toISOString(),
+        },
+        ReturnValues: 'NONE',
+    });
+
+    try {
+        await this.dynamoDBService.docClient.send(command);
+        this.logger.log(`Event soft deleted successfully: ${eventId}`);
+    } catch (error) {
+        this.logger.error(`Error soft deleting event ${eventId}:`, error.stack);
+        throw new InternalServerErrorException('Failed to soft delete event');
+    }
+  }
+
 }
