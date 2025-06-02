@@ -31,7 +31,7 @@ import { Public } from 'src/auth/decorators/isPublic.decorator';
 import { AuthenticatedRequest } from './interfaces/auth-request.interface';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ListUsersDto } from './dto/find-users-query.dto';
-import { ApiBody, ApiConsumes, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
 @Controller('users')
 export class UsersController {
@@ -65,10 +65,10 @@ export class UsersController {
       },
     },
   })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'User created successfully.', type: UserResponseDto })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid input data.' })
-  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'The provided email is already in use.' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal server error.' })
+  @ApiResponse({ status: 201, description: 'User created successfully.', type: UserResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid input data.' })
+  @ApiResponse({ status: 409, description: 'The provided email is already in use.' })
+  @ApiResponse({ status: 500, description: 'Internal server error.' })
   public async createUser(
     @Body() createUserDto: CreateUserDto,
     @UploadedFile(
@@ -93,9 +93,9 @@ export class UsersController {
       role: user.role as UserRole,
     });
   }
-
-  @HttpCode(200)
+  
   @Get(':id')
+  @HttpCode(200)
   async getUser(@Param('id') id: string, @Req() request: AuthenticatedRequest): Promise<UserResponseDto> {
     this.logger.log(`Getting user: ${id}`);
 
@@ -105,21 +105,37 @@ export class UsersController {
       throw new ForbiddenException('You do not have permission to access this resource');
     }
     const user = await this.usersService.findUserById(id);
-
+    
     if (!user) {
       this.logger.warn(`User not found: ${id}`);
       throw new NotFoundException('User not found');
     }
-
+    
     const { password, ...userResponseDto } = user;
     return new UserResponseDto({
       ...userResponseDto,
       role: user.role as UserRole,
     });
   }
-
+  
+  @ApiBearerAuth()
   @Get()
   @HttpCode(200)
+  @ApiOperation({ summary: 'List all users. admin only' })
+  @ApiQuery({ name: 'name', required: false, type: String, description: 'Filter by name' })
+  @ApiQuery({ name: 'email', required: false, type: String, description: 'Filter by email' })
+  @ApiQuery({ name: 'role', required: false, enum: UserRole, description: 'Filter by role' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Limit items per page (default 10, max 50)', schema: { default: 10, minimum:1, maximum:50 } })
+  @ApiQuery({ name: 'lastEvaluatedKey', required: false, type: String, description: 'Key to continue pagination (JSON stringified)'})
+  @ApiResponse({ status: 200, description: 'List of users and pagination information.', schema: {
+    type: 'object',
+    properties: {
+        users: { type: 'array', items: { $ref: '#src/users/dto/UserResponseDto'}},
+        count: { type: 'integer', example: 10},
+        lastEvaluatedKey: { type: 'object', example: {"id": {"S": "some-id"}}, nullable: true, description: 'Key for the next page, if it exists.'}
+    }
+  }})
+  @ApiResponse({ status: 403, description: 'Access denied.' })
   async getAll(@Query() listUserDto: ListUsersDto, @Req() request: AuthenticatedRequest): Promise<{ items: UserResponseDto[]; total: number; lastEvaluatedKey?: Record<string, any>}> {
     this.logger.log(`Listing users with query: ${JSON.stringify(listUserDto)}`);
 
