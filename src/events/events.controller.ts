@@ -15,6 +15,7 @@ import {
   Param,
   Get,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -55,7 +56,7 @@ export class EventsController {
 
     if (!eventImage) {
       this.logger.warn(`No event image provided by user: ${authUser.userId}`);
-      throw new ForbiddenException('You must provide an event image');
+      throw new BadRequestException('You must provide an event image');
     }
 
     const event = await this.eventsService.create(createEventDto, authUser.userId, eventImage);
