@@ -31,8 +31,9 @@ import { Public } from 'src/auth/decorators/isPublic.decorator';
 import { AuthenticatedRequest } from './interfaces/auth-request.interface';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ListUsersDto } from './dto/find-users-query.dto';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Users')
 @Controller('users')
 export class UsersController {
   private readonly logger = new Logger(UsersController.name);
