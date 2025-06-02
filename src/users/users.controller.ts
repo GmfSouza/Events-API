@@ -163,8 +163,16 @@ export class UsersController {
     };
   }
 
-  @HttpCode(200)
+  @ApiBearerAuth()
   @Patch(':id')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Update an existing user. (Self only)' })
+  @ApiParam({ name: 'id', description: 'ID of the user to be updated (UUID)', type: String })
+  @ApiBody({ type: UpdateUserDto, description: 'Fields to be updated. All are optional.' })
+  @ApiResponse({ status: 200, description: 'User updated successfully.', type: UserResponseDto })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  @ApiResponse({ status: 403, description: 'Access denied.'})
+  @ApiResponse({ status: 409, description: 'The new email is already in use.'})
   async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Req() request: AuthenticatedRequest): Promise<UserResponseDto> {
     this.logger.log(`Updating user: ${id}`);
     const authUser = request.user;
