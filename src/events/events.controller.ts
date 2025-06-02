@@ -16,6 +16,7 @@ import {
   Get,
   NotFoundException,
   BadRequestException,
+  Delete,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -131,5 +132,15 @@ export class EventsController {
     this.logger.log(`Event with ID ${eventId} updated successfully`);
 
     return updatedEvent;
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async deleteEvent(@Param('id') eventId: string, @Req() request: AuthenticatedRequest): Promise<void> {
+    const authUser = request.user;
+    this.logger.log(`Deleting event with ID: ${eventId}`);
+
+    await this.eventsService.softDelete(eventId, authUser.userId);
+    this.logger.log(`Event with ID ${eventId} deleted successfully`);
   }
 }
