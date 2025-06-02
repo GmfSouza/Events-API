@@ -136,7 +136,10 @@ export class EventsController {
 
   @Delete(':id')
   @HttpCode(204)
-  async deleteEvent(@Param('id') eventId: string, @Req() request: AuthenticatedRequest): Promise<void> {
+  async deleteEvent(
+    @Param('id') eventId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
     const authUser = request.user;
     this.logger.log(`Deleting event with ID: ${eventId}`);
 
