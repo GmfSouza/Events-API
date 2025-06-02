@@ -17,6 +17,7 @@ import {
   NotFoundException,
   BadRequestException,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -25,6 +26,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { EventResponseDto } from './dto/event-response.dto';
 import { UserRole } from 'src/users/enums/user-role.enum';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { ListEventsDto } from './dto/find-events-query.dto';
 
 @Controller('events')
 export class EventsController {
@@ -75,6 +77,47 @@ export class EventsController {
     this.logger.log(`Event created successfully: ${event.name}`);
 
     return event;
+  }
+
+  @Get()
+  @HttpCode(200)
+  async getEvents(@Query() ListEventsDto: ListEventsDto): Promise<{
+    events: EventResponseDto[];
+    total: number;
+    lastEvaluatedKey?: string;
+  }> {
+    this.logger.log(
+      `Fetching events with query: ${JSON.stringify(ListEventsDto)}`,
+    );
+    const result = await this.eventsService.FindAllEvents(ListEventsDto);
+
+    const eventsResponseDto = await Promise.all(
+      result.events.map(async (event) => {
+        let organizerInfo: { id: string; name: string } | undefined = undefined;
+        if (event.organizerId) {
+          const organizer = await this.eventsService.findEventById(
+            event.organizerId,
+          );
+          if (organizer) {
+            organizerInfo = {
+              id: organizer.id,
+              name: organizer.name,
+            };
+          }
+        }
+        return new EventResponseDto({
+          ...event,
+          organizer: organizerInfo,
+        });
+      }),
+    );
+    this.logger.log(`Fetched ${eventsResponseDto.length} events`);
+
+    return {
+      events: eventsResponseDto,
+      total: result.total,
+      lastEvaluatedKey: result.lastEvaluatedKey,
+    };
   }
 
   @Get(':id')
