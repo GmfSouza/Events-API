@@ -102,6 +102,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'User found.', type: UserResponseDto })
   @ApiResponse({ status: 404, description: 'User not found.' })
   @ApiResponse({ status: 403, description: 'Access denied.' })
+  @ApiResponse({ status: 500, description: 'Internal server error.' })
   async getUser(@Param('id') id: string, @Req() request: AuthenticatedRequest): Promise<UserResponseDto> {
     this.logger.log(`Getting user: ${id}`);
 
@@ -142,6 +143,7 @@ export class UsersController {
     }
   }})
   @ApiResponse({ status: 403, description: 'Access denied.' })
+  @ApiResponse({ status: 500, description: 'Internal server error.' })
   async getAll(@Query() listUserDto: ListUsersDto, @Req() request: AuthenticatedRequest): Promise<{ items: UserResponseDto[]; total: number; lastEvaluatedKey?: Record<string, any>}> {
     this.logger.log(`Listing users with query: ${JSON.stringify(listUserDto)}`);
 
@@ -173,6 +175,8 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found.' })
   @ApiResponse({ status: 403, description: 'Access denied.'})
   @ApiResponse({ status: 409, description: 'The new email is already in use.'})
+  @ApiResponse({ status: 500, description: 'Internal server error.' })
+
   async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Req() request: AuthenticatedRequest): Promise<UserResponseDto> {
     this.logger.log(`Updating user: ${id}`);
     const authUser = request.user;
@@ -197,6 +201,7 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found.' })
   @ApiResponse({ status: 403, description: 'Access denied.' })
   @ApiResponse({ status: 400, description: 'User is already inactive.' })
+  @ApiResponse({ status: 500, description: 'Internal server error.' })
   async delete(@Param('id') id: string, @Req() request: AuthenticatedRequest): Promise<void> {
     this.logger.log(`Deleting user: ${id}`);
     const authUser = request.user;
