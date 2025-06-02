@@ -31,7 +31,7 @@ import { Public } from 'src/auth/decorators/isPublic.decorator';
 import { AuthenticatedRequest } from './interfaces/auth-request.interface';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ListUsersDto } from './dto/find-users-query.dto';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
 @Controller('users')
 export class UsersController {
@@ -94,8 +94,14 @@ export class UsersController {
     });
   }
   
+  @ApiBearerAuth()
   @Get(':id')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Fetch a user by their ID (Admin or self)' })
+  @ApiParam({ name: 'id', description: 'User ID (UUID)', type: String, example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef' })
+  @ApiResponse({ status: 200, description: 'User found.', type: UserResponseDto })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  @ApiResponse({ status: 403, description: 'Access denied.' })
   async getUser(@Param('id') id: string, @Req() request: AuthenticatedRequest): Promise<UserResponseDto> {
     this.logger.log(`Getting user: ${id}`);
 
