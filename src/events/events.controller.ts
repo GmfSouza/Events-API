@@ -1,5 +1,5 @@
 import {
-    Body,
+  Body,
   Controller,
   FileTypeValidator,
   ForbiddenException,
@@ -38,20 +38,27 @@ export class EventsController {
     @Body() createEventDto: CreateEventDto,
     @Req() request: AuthenticatedRequest,
     @UploadedFile(
-        new ParseFilePipe({
-            validators: [
-                new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 }),
-                new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/i })
-            ]
-        })
-    ) 
-    eventImage: Express.Multer.File
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 }),
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/i }),
+        ],
+      }),
+    )
+    eventImage: Express.Multer.File,
   ): Promise<EventResponseDto> {
     const authUser = request.user;
     this.logger.log('Creating event');
-    if (authUser.role !== UserRole.ORGANIZER && authUser.role !== UserRole.ADMIN) {
-      this.logger.warn(`Unauthorized access attempt by user: ${authUser.userId} to create an event`);
-      throw new ForbiddenException('You do not have permission to access this resource');
+    if (
+      authUser.role !== UserRole.ORGANIZER &&
+      authUser.role !== UserRole.ADMIN
+    ) {
+      this.logger.warn(
+        `Unauthorized access attempt by user: ${authUser.userId} to create an event`,
+      );
+      throw new ForbiddenException(
+        'You do not have permission to access this resource',
+      );
     }
 
     if (!eventImage) {
@@ -59,7 +66,11 @@ export class EventsController {
       throw new BadRequestException('You must provide an event image');
     }
 
-    const event = await this.eventsService.create(createEventDto, authUser.userId, eventImage);
+    const event = await this.eventsService.create(
+      createEventDto,
+      authUser.userId,
+      eventImage,
+    );
     this.logger.log(`Event created successfully: ${event.name}`);
 
     return event;
@@ -86,25 +97,37 @@ export class EventsController {
     @Body() updateEventDto: UpdateEventDto,
     @Req() request: AuthenticatedRequest,
     @UploadedFile(
-        new ParseFilePipe({
-            validators: [
-                new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 }),
-                new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/i })
-            ],
-            fileIsRequired: false
-        })
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 }),
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/i }),
+        ],
+        fileIsRequired: false,
+      }),
     )
-    eventImage?: Express.Multer.File
+    eventImage?: Express.Multer.File,
   ): Promise<EventResponseDto> {
     const authUser = request.user;
     this.logger.log(`Updating event with ID: ${eventId}`);
-    
-    if (authUser.role !== UserRole.ORGANIZER && authUser.role !== UserRole.ADMIN) {
-      this.logger.warn(`Unauthorized access attempt by user: ${authUser.userId} to update event ${eventId}`);
-      throw new ForbiddenException('You do not have permission to access this resource');
+
+    if (
+      authUser.role !== UserRole.ORGANIZER &&
+      authUser.role !== UserRole.ADMIN
+    ) {
+      this.logger.warn(
+        `Unauthorized access attempt by user: ${authUser.userId} to update event ${eventId}`,
+      );
+      throw new ForbiddenException(
+        'You do not have permission to access this resource',
+      );
     }
 
-    const updatedEvent = await this.eventsService.update(eventId, updateEventDto, authUser.userId, eventImage);
+    const updatedEvent = await this.eventsService.update(
+      eventId,
+      updateEventDto,
+      authUser.userId,
+      eventImage,
+    );
     this.logger.log(`Event with ID ${eventId} updated successfully`);
 
     return updatedEvent;
