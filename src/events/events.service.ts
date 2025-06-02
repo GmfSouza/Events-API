@@ -468,27 +468,26 @@ export class EventsService {
     }
 
     const command = new UpdateCommand({
-        TableName: this.eventsTable,
-        Key: { id: eventId },
-        UpdateExpression: 'SET #statusAttr = :status, #updatedAt = :updatedAt',
-        ExpressionAttributeNames: {
-          '#statusAttr': 'status',
-          '#updatedAt': 'updatedAt',
-        },
-        ExpressionAttributeValues: {
-          ':status': EventStatus.INACTIVE,
-          ':updatedAt': new Date().toISOString(),
-        },
-        ReturnValues: 'NONE',
+      TableName: this.eventsTable,
+      Key: { id: eventId },
+      UpdateExpression: 'SET #statusAttr = :status, #updatedAt = :updatedAt',
+      ExpressionAttributeNames: {
+        '#statusAttr': 'status',
+        '#updatedAt': 'updatedAt',
+      },
+      ExpressionAttributeValues: {
+        ':status': EventStatus.INACTIVE,
+        ':updatedAt': new Date().toISOString(),
+      },
+      ReturnValues: 'NONE',
     });
 
     try {
-        await this.dynamoDBService.docClient.send(command);
-        this.logger.log(`Event soft deleted successfully: ${eventId}`);
+      await this.dynamoDBService.docClient.send(command);
+      this.logger.log(`Event soft deleted successfully: ${eventId}`);
     } catch (error) {
-        this.logger.error(`Error soft deleting event ${eventId}:`, error.stack);
-        throw new InternalServerErrorException('Failed to soft delete event');
+      this.logger.error(`Error soft deleting event ${eventId}:`, error.stack);
+      throw new InternalServerErrorException('Failed to soft delete event');
     }
   }
-
 }
