@@ -1,4 +1,4 @@
-import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DynamoDbService } from 'src/aws/dynamodb/dynamodb.service';
@@ -52,6 +52,28 @@ export class EventsService {
         } catch (error) {
             this.logger.error(`Error checking if event name exists: ${name}`, error.stack);
             throw new InternalServerErrorException('Error checking if event name exists');
+        }
+    }
+
+    async findEventById(eventId: string): Promise<Event | null> {
+        this.logger.log(`Finding event by ID: ${eventId}`);
+        const command = new GetCommand({
+            TableName: this.eventsTable,
+            Key: { id: eventId },
+        });
+
+        try {
+            const response = await this.dynamoDBService.docClient.send(command);
+            if (response.Item) {
+                this.logger.log(`Event found: ${eventId}`);
+                return response.Item as Event;
+            } else {
+                this.logger.warn(`Event not found: ${eventId}`);
+                return null;
+            }
+        } catch (error) {
+            this.logger.error(`Error finding event by ID: ${eventId}`, error.stack);
+            throw new InternalServerErrorException('Error finding event');
         }
     }
 
