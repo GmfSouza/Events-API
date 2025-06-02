@@ -31,6 +31,7 @@ import { Public } from 'src/auth/decorators/isPublic.decorator';
 import { AuthenticatedRequest } from './interfaces/auth-request.interface';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ListUsersDto } from './dto/find-users-query.dto';
+import { ApiBody, ApiConsumes, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('users')
 export class UsersController {
@@ -41,6 +42,33 @@ export class UsersController {
   @Post()
   @HttpCode(201)
   @UseInterceptors(FileInterceptor('profileImage')) 
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Create a new user' })
+  @ApiBody({
+    description: 'Data of the user to be created. Profile image is optional.',
+    schema: {
+      type: 'object',
+      required: ['name', 'email', 'password', 'phone', 'role'],
+      properties: {
+        name: { type: 'string', example: 'John Doe' },
+        email: { type: 'string', format: 'email', example: 'john.doe@example.com' },
+        password: { type: 'string', format: 'password', example: 'Password!1234', minLength: 8 },
+        phone: { type: 'string', example: '+5521548796387' },
+        role: { type: 'string', enum: Object.values(UserRole), default: UserRole.PARTICIPANT },
+        profileImage: {
+          type: 'string',
+          format: 'binary',
+          description: 'Optional profile image file. Supported formats: jpg, jpeg, png, webp. Max size: 5MB',
+          example: 'profile.jpg',
+          nullable: true,
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'User created successfully.', type: UserResponseDto })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid input data.' })
+  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'The provided email is already in use.' })
+  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal server error.' })
   public async createUser(
     @Body() createUserDto: CreateUserDto,
     @UploadedFile(
