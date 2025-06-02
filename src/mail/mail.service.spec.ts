@@ -148,4 +148,30 @@ describe('MailService', () => {
       expect(sesClient.send).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('sendDeletedAccountNotification', () => {
+    it('should send account deletion notification successfully', async () => {
+      const user = 'testUser';
+      const email = 'test@example.com';
+      (sesClient.send as jest.Mock).mockResolvedValueOnce({});
+      await mailService.sendDeletedAccountNotification(user, email);
+      expect(SendEmailCommand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          Destination: { ToAddresses: [email] },
+          Source: 'test@example.com',
+        }),
+      );
+      expect(sesClient.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle email sending failure', async () => {
+      const user = 'testUser';
+      const email = 'test@example.com';
+      (sesClient.send as jest.Mock).mockRejectedValueOnce(
+        new Error('Deletion notification failed'),
+      );
+      await mailService.sendDeletedAccountNotification(user, email);
+      expect(sesClient.send).toHaveBeenCalledTimes(1);
+    });
+  });
 });
