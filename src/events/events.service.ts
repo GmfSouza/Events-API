@@ -381,7 +381,13 @@ export class EventsService {
         );
       }
 
-      return new EventResponseDto(newEvent);
+      return new EventResponseDto({
+        ...newEvent,
+        organizer: {
+          id: organizer.id,
+          name: organizer.name,
+        },
+      });
     } catch (error) {
       if (s3UploadKey) {
         this.logger.error(
@@ -607,7 +613,13 @@ export class EventsService {
         }
       }
 
-      return response.Attributes as EventResponseDto;
+      return new EventResponseDto({
+        ...response.Attributes,
+        organizer: {
+          id: requester.id,
+          name: requester.name,
+        },
+      });
     } catch (error) {
       if (s3NewUploadKey && newImageUrl !== event.imageUrl) {
         this.logger.warn(
