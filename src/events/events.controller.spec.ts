@@ -114,4 +114,21 @@ describe('EventsController', () => {
       expect(result.total).toBe(1);
     });
   });
+
+   describe('getEvent', () => {
+    it('should return an event by id', async () => {
+      mockEventsService.findEventById.mockResolvedValue(mockEvent);
+
+      const result = await controller.getEvent('1');
+
+      expect(service.findEventById).toHaveBeenCalledWith('1');
+      expect(result).toEqual(mockEvent);
+    });
+
+    it('should throw NotFoundException when event is not found', async () => {
+      mockEventsService.findEventById.mockResolvedValue(null);
+
+      await expect(controller.getEvent('1')).rejects.toThrow(NotFoundException);
+    });
+  });
 });
