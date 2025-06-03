@@ -25,6 +25,7 @@ import { CreateRegistrationDto } from './dto/create-registration.dto';
 import { EventStatus } from 'src/events/enums/event-status.enum';
 import { v4 as uuidv4 } from 'uuid';
 import { ListUserRegistrationsDto } from './dto/find-registrations-query.dto';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class RegistrationsService {
@@ -36,6 +37,7 @@ export class RegistrationsService {
     private readonly configService: ConfigService,
     private readonly eventsService: EventsService,
     private readonly usersService: UsersService,
+    private readonly mailService: MailService,
   ) {
     const tableName = this.configService.get<string>(
       'DYNAMODB_TABLE_REGISTRATIONS',
@@ -157,6 +159,30 @@ export class RegistrationsService {
         `Registration created successfully for userId: ${userId}, eventId: ${eventId}`,
       );
 
+      if (user.email && event) {
+        try {
+          this.logger.log(
+            `Sending registration confirmation email to userId: ${userId}, eventId: ${eventId}`,
+          );
+          await this.mailService.sendRegistrationNotification(
+            user.email,
+            user.name,
+            event.name,
+            event.date,
+            event.description,
+            event.id,
+          );
+
+          this.logger.log(
+            `Registration confirmation email sent successfully to userId: ${userId}, eventId: ${eventId}`,
+          );
+        } catch (emailError) {
+          this.logger.error(
+            `Error sending registration confirmation email: ${emailError}`,
+          );
+        }
+      }
+
       return newRegistration;
     } catch (error) {
       this.logger.error(`Error creating registration: ${error}`);
@@ -254,59 +280,60 @@ export class RegistrationsService {
     }
 
     const queryInput: QueryCommandInput = {
-        TableName: this.regTableName,
-        KeyConditionExpression: 'userId = :userId',
-        FilterExpression: '#status = :activeStatus',
-        ExpressionAttributeNames: {
-            '#status': 'status',
-        },
-        ExpressionAttributeValues: {
-            ':userId': userId,
-            ':activeStatus': RegistrationStatus.ACTIVE,
-        },
-        Limit: limit,
-        ExclusiveStartKey: exclusiveStartKey,
-        ScanIndexForward: false,
-      };
+      TableName: this.regTableName,
+      KeyConditionExpression: 'userId = :userId',
+      FilterExpression: '#status = :activeStatus',
+      ExpressionAttributeNames: {
+        '#status': 'status',
+      },
+      ExpressionAttributeValues: {
+        ':userId': userId,
+        ':activeStatus': RegistrationStatus.ACTIVE,
+      },
+      Limit: limit,
+      ExclusiveStartKey: exclusiveStartKey,
+      ScanIndexForward: false,
+    };
 
-      try {
-        const response = await this.dynamoDbService.docClient.send(new QueryCommand(queryInput));
-        const registrations = (response.Items || []) as Registration[];
+    try {
+      const response = await this.dynamoDbService.docClient.send(
+        new QueryCommand(queryInput),
+      );
+      const registrations = (response.Items || []) as Registration[];
 
-        const registrationsEventDetails = await Promise.all(
-          registrations.map(async (registration) => {
-            const event = await this.eventsService.findEventById(
-              registration.eventId,
+      const registrationsEventDetails = await Promise.all(
+        registrations.map(async (registration) => {
+          const event = await this.eventsService.findEventById(
+            registration.eventId,
+          );
+          let organizerDetails;
+          if (event && event.organizerId) {
+            const organizer = await this.usersService.findUserById(
+              event.organizerId,
             );
-            let organizerDetails;
-            if (event && event.organizerId) {
-              const organizer = await this.usersService.findUserById(
-                event.organizerId,
-              );
-              if (organizer) {
-                organizerDetails = { id: organizer.id, name: organizer.name };
-              }
+            if (organizer) {
+              organizerDetails = { id: organizer.id, name: organizer.name };
             }
-            return {
-              ...registration,
-              event: event,
-              organizer: organizerDetails,
-            };
-          }),
-        );
+          }
+          return {
+            ...registration,
+            event: event,
+            organizer: organizerDetails,
+          };
+        }),
+      );
 
-        this.logger.log(
-          `Found ${registrationsEventDetails.length} registrations for userId: ${userId}`,
-        );
-        return {
-            registrationsEventDetails,
-            total: response.Count || 0,
-            lastEvaluatedKey: response.LastEvaluatedKey,
-        };
-      } catch (error) {
-        this.logger.error(`Error finding registrations: ${error}`);
-        throw new InternalServerErrorException('Error finding registrations');
-      }
+      this.logger.log(
+        `Found ${registrationsEventDetails.length} registrations for userId: ${userId}`,
+      );
+      return {
+        registrationsEventDetails,
+        total: response.Count || 0,
+        lastEvaluatedKey: response.LastEvaluatedKey,
+      };
+    } catch (error) {
+      this.logger.error(`Error finding registrations: ${error}`);
+      throw new InternalServerErrorException('Error finding registrations');
     }
   }
-
+}
