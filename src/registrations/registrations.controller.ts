@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, HttpCode, Logger, Param, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Logger,
+  Param,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RegistrationsService } from './registrations.service';
 import { EventsService } from 'src/events/events.service';
@@ -7,6 +18,7 @@ import { CreateRegistrationDto } from './dto/create-registration.dto';
 import { RegistrationResponseDto } from './dto/registration-response.dto';
 import { UsersService } from 'src/users/users.service';
 import { EventResponseDto } from 'src/events/dto/event-response.dto';
+import { ListUserRegistrationsDto } from './dto/find-registrations-query.dto';
 
 @ApiTags('registrations')
 @Controller('registrations')
@@ -67,15 +79,51 @@ export class RegistrationsController {
     return new RegistrationResponseDto(responseData);
   }
 
+  @Get()
+  @HttpCode(200)
+  async findRegistrations(
+    @Req() request: AuthenticatedRequest,
+    @Query() listDto: ListUserRegistrationsDto,
+  ): Promise<{
+    registrationsWithEventDetails: RegistrationResponseDto[];
+    total: number;
+    lastEvaluatedKey?: string | any;
+  }> {
+    const authhenticatedUser = request.user;
+    this.logger.log(
+      `User ${authhenticatedUser.userId} is retrieving their registrations`,
+    );
+
+    const response = await this.registrationsService.findAllByUserId(
+      authhenticatedUser.userId,
+      listDto,
+    );
+
+    const responseItems = response.registrationsEventDetails.map(
+        item => new RegistrationResponseDto(item),
+    )
+
+    return {
+        registrationsWithEventDetails: responseItems,
+        total: response.total,
+        lastEvaluatedKey: response.lastEvaluatedKey,
+    }
+  }
+
   @Delete(':eventId')
   @HttpCode(204)
-  async cancelRegistration(@Param('eventId') eventId: string, @Req() request: AuthenticatedRequest): Promise<void> {
+  async cancelRegistration(
+    @Param('eventId') eventId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
     const authenticatedUser = request.user;
     this.logger.log(
       `User ${authenticatedUser.userId} is attempting to cancel registration for event ${eventId}`,
     );
 
-    await this.registrationsService.cancelRegistration(authenticatedUser.userId, eventId);
-
+    await this.registrationsService.cancelRegistration(
+      authenticatedUser.userId,
+      eventId,
+    );
   }
 }
