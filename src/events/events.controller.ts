@@ -27,7 +27,16 @@ import { EventResponseDto } from './dto/event-response.dto';
 import { UserRole } from 'src/users/enums/user-role.enum';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { ListEventsDto } from './dto/find-events-query.dto';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { EventStatus } from './enums/event-status.enum';
 
 @ApiTags('events')
 @Controller('events')
@@ -38,7 +47,7 @@ export class EventsController {
 
   @Post()
   @HttpCode(201)
-  @ApiBearerAuth() 
+  @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('eventImage'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
@@ -47,8 +56,7 @@ export class EventsController {
       'Allows Organizers or Administrators to create a new event. The event image is required.',
   })
   @ApiBody({
-    description:
-      'Event data.',
+    description: 'Event data.',
     schema: {
       type: 'object',
       required: ['name', 'description', 'eventDate'],
@@ -66,8 +74,7 @@ export class EventsController {
         eventImage: {
           type: 'string',
           format: 'binary',
-          description:
-            'File to upload (JPG, JPEG, PNG, WEBP). Max: 5MB.',
+          description: 'File to upload (JPG, JPEG, PNG, WEBP). Max: 5MB.',
           nullable: true,
         },
       },
@@ -139,6 +146,80 @@ export class EventsController {
 
   @Get()
   @HttpCode(200)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'List all events with filters and pagination (Authenticated Users)',
+  })
+  @ApiQuery({
+    name: 'name',
+    required: false,
+    type: String,
+    description: 'Fetch events by name (partial match)',
+    example: 'Conference',
+  })
+  @ApiQuery({
+    name: 'dateBefore',
+    required: false,
+    type: String,
+    format: 'date',
+    description: 'Fetch events before this date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'dateAfter',
+    required: false,
+    type: String,
+    format: 'date',
+    description: 'Fetch events after this date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: EventStatus,
+    description: 'Filter by event status',
+    example: EventStatus.INACTIVE,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Limit the number of events returned (per page)',
+    schema: { default: 10, minimum: 1, maximum: 50 },
+  })
+  @ApiQuery({
+    name: 'lastEvaluatedKey',
+    required: false,
+    type: String,
+    description: 'JSON string for pagination (last evaluated key)',
+    example: '{"id":"123e4567-e89b-12d3-a456-426614174000"}',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of events and pagination information.',
+    schema: {
+      type: 'object',
+      properties: {
+        events: {
+          type: 'array',
+          items: { $ref: `#/events/dtos/EventResponseDto` },
+        },
+        count: { type: 'integer', example: 1 },
+        lastEvaluatedKey: {
+          type: 'object',
+          nullable: true,
+          description: 'Last evaluated key for pagination',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid query parameters.',
+  })
   async getEvents(@Query() ListEventsDto: ListEventsDto): Promise<{
     events: EventResponseDto[];
     total: number;
