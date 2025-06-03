@@ -342,6 +342,31 @@ export class MailService {
             <p>Event ID: ${eventId}</p>`;
     const text = `Hello ${participantName}, you have successfully registered for the event "${eventName}" on ${eventDate}. Description: ${eventDescription}. Event ID: ${eventId}`;
 
-    await this.sendEmailWithICS(participantEmail, subject, body, text, icsData, eventName);
+    await this.sendEmailWithICS(
+      participantEmail,
+      subject,
+      body,
+      text,
+      icsData,
+      eventName,
+    );
+  }
+
+  async sendRegistrationCancellationNotification(
+    participantEmail: string,
+    participantName: string,
+    eventName: string,
+  ): Promise<void> {
+    this.logger.log(
+      `Sending registration cancellation notification to ${participantEmail} for event ${eventName}`,
+    );
+
+    const subject = 'Registration Cancellation';
+    const body = `<h1>Registration Cancellation</h1>
+            <p>Dear ${participantName},</p>
+            <p>Your registration for the event "${eventName}" has been canceled.</p>`;
+    const text = `Hello ${participantName}, your registration for the event "${eventName}" has been canceled.`;
+
+    await this.sendEmail(participantEmail, subject, body, text);
   }
 }
