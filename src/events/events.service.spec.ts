@@ -239,7 +239,7 @@ describe('EventsService', () => {
     it('should throw BadRequestException if event date is in the past', async () => {
       const pastEventDto = {
         ...mockUpdateEventDto,
-        date: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+        date: new Date(Date.now() - 86400000).toISOString(), 
       };
 
       await expect(
