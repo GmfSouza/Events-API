@@ -160,4 +160,18 @@ describe('EventsController', () => {
       ).rejects.toThrow(ForbiddenException);
     });
   });
-}); 
+
+    describe('deleteEvent', () => {
+    it('should delete an event', async () => {
+      const req = {
+        user: { userId: 'user123', role: UserRole.ORGANIZER },
+      };
+
+      mockEventsService.softDelete.mockResolvedValue(undefined);
+
+      await controller.deleteEvent('1', req as any);
+
+      expect(service.softDelete).toHaveBeenCalledWith('1', 'user123');
+    });
+  });
+});
