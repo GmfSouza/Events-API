@@ -375,7 +375,10 @@ export class EventsService {
           this.logger.log(`Email sent to organizer: ${organizer.email}`);
         }
       } catch (error) {
-        this.logger.error(`Error sending email to organizer: ${organizer.email}`, error.stack);
+        this.logger.error(
+          `Error sending email to organizer: ${organizer.email}`,
+          error.stack,
+        );
       }
 
       return new EventResponseDto(newEvent);
