@@ -1,4 +1,4 @@
-import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, UpdateCommandInput, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DynamoDbService } from 'src/aws/dynamodb/dynamodb.service';
@@ -30,8 +30,8 @@ export class RegistrationsService {
         this.logger.log(`Using registrations table: ${this.regTableName}`);
     }
 
-    private async findExistingRegistration(eventId: string, userId: string): Promise<Registration | null> {
-        this.logger.log(`Checking for existing registration for eventId: ${eventId}, userId: ${userId}`);
+    private async findExistingRegistration(userId: string, eventId: string): Promise<Registration | null> {
+        this.logger.log(`Checking for existing registration for userId: ${userId}, eventId: ${eventId}`);
         const command = new GetCommand({
             TableName: this.regTableName,
             Key: {
@@ -42,11 +42,12 @@ export class RegistrationsService {
 
         try {
             const response = await this.dynamoDbService.docClient.send(command);
-            if(response.Item && response.Item.status === RegistrationStatus.ACTIVE) {
+            if(response.Item) {
                 this.logger.log(`Found existing active registration for userId: ${userId}, eventId: ${eventId}`);
                 return response.Item as Registration;
             }
 
+            this.logger.log(`No existing registration found for userId: ${userId}, eventId: ${eventId}`);
             return null;
         } catch (error) {
             this.logger.error(`Error checking for existing registration: ${error}`);
@@ -84,7 +85,7 @@ export class RegistrationsService {
             throw new BadRequestException('You cannot register for an event that has already occurred');
         }
 
-        const existingRegistration = await this.findExistingRegistration(eventId, userId);
+        const existingRegistration = await this.findExistingRegistration(userId, eventId);
         if(existingRegistration) {
             this.logger.error(`User already registered for eventId: ${eventId}`);
             throw new ConflictException('You are already registered for this event');
@@ -114,6 +115,56 @@ export class RegistrationsService {
         } catch (error) {
             this.logger.error(`Error creating registration: ${error}`);
             throw new InternalServerErrorException('Error creating registration');
+        }
+    }
+
+    async cancelRegistration(requestingUserId: string, eventId: string): Promise<void> {
+        this.logger.log(`Soft deleting registration for userId: ${requestingUserId}, eventId: ${eventId}`);
+
+        const registration = await this.findExistingRegistration(requestingUserId,eventId );
+        if (!registration) {
+            this.logger.error(`Registration not found for userId: ${requestingUserId}, eventId: ${eventId}`);
+            throw new NotFoundException('Registration not found');
+        }
+
+        if(registration.status === RegistrationStatus.CANCELLED) {
+            this.logger.error(`Registration is already cancelled for userId: ${requestingUserId}, eventId: ${eventId}`);
+            throw new ConflictException('Registration is already cancelled');
+        }
+
+        const event = await this.eventsService.findEventById(eventId);
+        if (event){
+            const eventDate = new Date(event.date);
+            if (eventDate < new Date()) {
+                this.logger.error(`Event date has passed for eventId: ${eventId}`);
+                throw new BadRequestException('You cannot cancel a registration for an event that has already occurred');
+            }
+        }
+
+        const updateCommandInput: UpdateCommandInput = ({
+            TableName: this.regTableName,
+            Key: {
+                userId: requestingUserId,
+                eventId: eventId
+            },
+            UpdateExpression: 'SET #statusAttr = :status, #updatedAt = :updatedAt',
+            ExpressionAttributeNames: {
+                '#statusAttr': 'status',
+                '#updatedAt': 'updatedAt',
+            },
+            ExpressionAttributeValues: {
+                ':status': RegistrationStatus.CANCELLED,
+                ':updatedAt': new Date().toISOString(),
+            },
+            ReturnValues: 'NONE'
+        })
+
+        try {
+            await this.dynamoDbService.docClient.send(new UpdateCommand(updateCommandInput));
+            this.logger.log(`Registration cancelled successfully for userId: ${requestingUserId}, eventId: ${eventId}`);
+        } catch (error) {
+            this.logger.error(`Error cancelling registration: ${error}`);
+            throw new InternalServerErrorException('Error cancelling registration');
         }
     }
 }
