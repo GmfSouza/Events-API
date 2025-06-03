@@ -375,7 +375,10 @@ export class EventsService {
           this.logger.log(`Email sent to organizer: ${organizer.email}`);
         }
       } catch (error) {
-        this.logger.error(`Error sending email to organizer: ${organizer.email}`, error.stack);
+        this.logger.error(
+          `Error sending email to organizer: ${organizer.email}`,
+          error.stack,
+        );
       }
 
       return new EventResponseDto(newEvent);
@@ -675,6 +678,34 @@ export class EventsService {
     try {
       await this.dynamoDBService.docClient.send(command);
       this.logger.log(`Event soft deleted successfully: ${eventId}`);
+
+      const originalOrganizer = await this.usersService.findUserById(
+        event.organizerId,
+      );
+      if (originalOrganizer && originalOrganizer.email) {
+        try {
+          this.logger.log(
+            `Sending event deleted email to organizer: ${originalOrganizer.email}`,
+          );
+          await this.mailService.sendEventDeletedEmail(
+            originalOrganizer.email,
+            originalOrganizer.name,
+            event.name,
+          );
+          this.logger.log(
+            `Event deleted email sent to organizer: ${originalOrganizer.email}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Error sending event deleted email for event ${eventId}:`,
+            error.stack,
+          );
+        }
+      } else {
+        this.logger.warn(
+          `Organizer with ID ${event.organizerId} not found or has no email`,
+        );
+      }
     } catch (error) {
       this.logger.error(`Error soft deleting event ${eventId}:`, error.stack);
       throw new InternalServerErrorException('Failed to soft delete event');
