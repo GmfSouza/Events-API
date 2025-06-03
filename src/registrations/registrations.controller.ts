@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Logger, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, HttpCode, Logger, Param, Post, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RegistrationsService } from './registrations.service';
 import { EventsService } from 'src/events/events.service';
@@ -65,5 +65,17 @@ export class RegistrationsController {
     }
 
     return new RegistrationResponseDto(responseData);
+  }
+
+  @Delete(':eventId')
+  @HttpCode(204)
+  async cancelRegistration(@Param('eventId') eventId: string, @Req() request: AuthenticatedRequest): Promise<void> {
+    const authenticatedUser = request.user;
+    this.logger.log(
+      `User ${authenticatedUser.userId} is attempting to cancel registration for event ${eventId}`,
+    );
+
+    await this.registrationsService.cancelRegistration(authenticatedUser.userId, eventId);
+
   }
 }
