@@ -27,7 +27,9 @@ import { EventResponseDto } from './dto/event-response.dto';
 import { UserRole } from 'src/users/enums/user-role.enum';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { ListEventsDto } from './dto/find-events-query.dto';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('events')
 @Controller('events')
 export class EventsController {
   private readonly logger = new Logger(EventsController.name);
@@ -36,7 +38,63 @@ export class EventsController {
 
   @Post()
   @HttpCode(201)
+  @ApiBearerAuth() 
   @UseInterceptors(FileInterceptor('eventImage'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Create a new event',
+    description:
+      'Allows Organizers or Administrators to create a new event. The event image is required.',
+  })
+  @ApiBody({
+    description:
+      'Event data.',
+    schema: {
+      type: 'object',
+      required: ['name', 'description', 'eventDate'],
+      properties: {
+        name: { type: 'string', example: 'Technology Conference' },
+        description: {
+          type: 'string',
+          example: 'A conference about technology.',
+        },
+        eventDate: {
+          type: 'string',
+          format: 'date-time',
+          example: '2026-07-10T19:00:00Z',
+        },
+        eventImage: {
+          type: 'string',
+          format: 'binary',
+          description:
+            'File to upload (JPG, JPEG, PNG, WEBP). Max: 5MB.',
+          nullable: true,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Event created successfully.',
+    type: EventResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Invalid input data (ex: invalid date, past date, duplicate name).',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Access denied (not Organizer or Admin).',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'An event with this name already exists.',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error.',
+  })
   async createEvent(
     @Body() createEventDto: CreateEventDto,
     @Req() request: AuthenticatedRequest,
