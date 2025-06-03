@@ -4,7 +4,11 @@ import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { UserRole } from 'src/users/enums/user-role.enum';
-import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 
 describe('EventsController', () => {
   let controller: EventsController;
@@ -64,9 +68,17 @@ describe('EventsController', () => {
 
       mockEventsService.create.mockResolvedValue(mockEvent);
 
-      const result = await controller.createEvent(createEventDto, req as any, mockEventImage);
+      const result = await controller.createEvent(
+        createEventDto,
+        req as any,
+        mockEventImage,
+      );
 
-      expect(service.create).toHaveBeenCalledWith(createEventDto, 'user123', mockEventImage);
+      expect(service.create).toHaveBeenCalledWith(
+        createEventDto,
+        'user123',
+        mockEventImage,
+      );
       expect(result).toEqual(mockEvent);
     });
 
@@ -91,7 +103,7 @@ describe('EventsController', () => {
     });
   });
 
-   describe('getEvents', () => {
+  describe('getEvents', () => {
     const listEventsDto = {
       limit: 10,
       lastEvaluatedKey: undefined,
@@ -115,7 +127,7 @@ describe('EventsController', () => {
     });
   });
 
-   describe('getEvent', () => {
+  describe('getEvent', () => {
     it('should return an event by id', async () => {
       mockEventsService.findEventById.mockResolvedValue(mockEvent);
 
@@ -144,9 +156,19 @@ describe('EventsController', () => {
 
       mockEventsService.update.mockResolvedValue(mockEvent);
 
-      const result = await controller.updateEvent('1', updateEventDto, req as any, mockEventImage);
+      const result = await controller.updateEvent(
+        '1',
+        updateEventDto,
+        req as any,
+        mockEventImage,
+      );
 
-      expect(service.update).toHaveBeenCalledWith('1', updateEventDto, 'user123', mockEventImage);
+      expect(service.update).toHaveBeenCalledWith(
+        '1',
+        updateEventDto,
+        'user123',
+        mockEventImage,
+      );
       expect(result).toEqual(mockEvent);
     });
 
@@ -161,7 +183,7 @@ describe('EventsController', () => {
     });
   });
 
-    describe('deleteEvent', () => {
+  describe('deleteEvent', () => {
     it('should delete an event', async () => {
       const req = {
         user: { userId: 'user123', role: UserRole.ORGANIZER },
