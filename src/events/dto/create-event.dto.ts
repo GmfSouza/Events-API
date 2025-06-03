@@ -1,6 +1,13 @@
+import { ApiProperty } from "@nestjs/swagger";
 import { IsDateString, IsNotEmpty, IsString, MinLength } from "class-validator";
 
 export class CreateEventDto {
+    @ApiProperty({
+    description: 'Event name (must be unique)',
+    example: 'Technology Conference',
+    minLength: 5,
+    maxLength: 100,
+  })
     @IsNotEmpty()
     @IsString()
     @MinLength(3, {
@@ -8,6 +15,12 @@ export class CreateEventDto {
     })
     name: string;
 
+    @ApiProperty({
+        description: 'Event description',
+        example: 'A conference about technology.',
+        minLength: 15,
+        maxLength: 500,
+    })
     @IsNotEmpty()
     @IsString()
     @MinLength(15, {
@@ -15,6 +28,12 @@ export class CreateEventDto {
     })
     description: string;
 
+    @ApiProperty({
+        description: 'Date of the event in YYYY-MM-DD format',
+        example: '2026-01-15T18:00:00Z',
+        type: String,
+        format: 'date-time',
+    })
     @IsNotEmpty()
     @IsString()
     @IsDateString({}, {
