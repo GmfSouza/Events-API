@@ -6,9 +6,10 @@ import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from 'src/users/users.module';
 import { EventsModule } from 'src/events/events.module';
 import { AuthModule } from 'src/auth/auth.module';
+import { MailModule } from 'src/mail/mail.module';
 
 @Module({
-  imports: [AwsModule, ConfigModule, UsersModule, forwardRef(() => EventsModule), AuthModule],
+  imports: [AwsModule, ConfigModule, UsersModule, forwardRef(() => EventsModule), AuthModule, MailModule],
   controllers: [RegistrationsController],
   providers: [RegistrationsService],
   exports: [RegistrationsService]
