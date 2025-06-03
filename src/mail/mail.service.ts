@@ -1,4 +1,9 @@
-import { SendEmailCommand, SendRawEmailCommand, SendRawEmailCommandInput, SESClient } from '@aws-sdk/client-ses';
+import {
+  SendEmailCommand,
+  SendRawEmailCommand,
+  SendRawEmailCommandInput,
+  SESClient,
+} from '@aws-sdk/client-ses';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as ics from 'ics';
@@ -126,7 +131,7 @@ export class MailService {
     }
   }
 
-    private async sendEmailWithICS(
+  private async sendEmailWithICS(
     to: string,
     subject: string,
     body: string,
@@ -180,10 +185,10 @@ export class MailService {
     rawMessage += `--${boundary}--`;
 
     const params: SendRawEmailCommandInput = {
-        Destinations: [to],
-        Source: fromEmail,
-        RawMessage: {
-          Data: Buffer.from(rawMessage, 'utf-8'),
+      Destinations: [to],
+      Source: fromEmail,
+      RawMessage: {
+        Data: Buffer.from(rawMessage, 'utf-8'),
       },
     };
 
@@ -288,5 +293,55 @@ export class MailService {
     await this.sendEmail(organizerEmail, subject, body, textBody);
   }
 
-  async;
+  async sendRegistrationNotification(
+    participantEmail: string,
+    participantName: string,
+    eventName: string,
+    eventDate: string,
+    eventDescription: string,
+    eventId: string,
+  ): Promise<void> {
+    this.logger.log(
+      `Sending registration notification to ${participantEmail} for event ${eventName}`,
+    );
+
+    const icsData = this.generateICalendarData(
+      eventName,
+      eventDate,
+      eventDescription,
+      eventId,
+    );
+    if (!icsData) {
+      this.logger.error(
+        `Failed to generate iCalendar data for event ${eventName}. Email will not be sent.`,
+      );
+
+      const subjectFallback = 'Registration Confirmation';
+      const bodyFallback = `<h1>Registration Confirmation</h1>
+                   <p>Dear ${participantName},</p>
+                   <p>You have successfully registered for the event "${eventName}".</p>
+                   <p>Event Date: ${eventDate}</p>
+                   <p>Description: ${eventDescription}</p>
+                   <p>Event ID: ${eventId}</p>`;
+      const textFallback = `Hello ${participantName}, you have successfully registered for the event "${eventName}" on ${eventDate}. Description: ${eventDescription}. Event ID: ${eventId}`;
+      await this.sendEmail(
+        participantEmail,
+        subjectFallback,
+        bodyFallback,
+        textFallback,
+      );
+      return;
+    }
+
+    const subject = 'Registration Confirmation';
+    const body = `<h1>Registration Confirmation</h1>
+            <p>Dear ${participantName},</p>
+            <p>You have successfully registered for the event "${eventName}".</p>
+            <p>Event Date: ${eventDate}</p>
+            <p>Description: ${eventDescription}</p>
+            <p>Event ID: ${eventId}</p>`;
+    const text = `Hello ${participantName}, you have successfully registered for the event "${eventName}" on ${eventDate}. Description: ${eventDescription}. Event ID: ${eventId}`;
+
+    await this.sendEmailWithICS(participantEmail, subject, body, text, icsData, eventName);
+  }
 }
