@@ -32,6 +32,7 @@ import {
   ApiBody,
   ApiConsumes,
   ApiOperation,
+  ApiParam,
   ApiQuery,
   ApiResponse,
   ApiTags,
@@ -220,6 +221,10 @@ export class EventsController {
     status: 400,
     description: 'Invalid query parameters.',
   })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error.',
+  })
   async getEvents(@Query() ListEventsDto: ListEventsDto): Promise<{
     events: EventResponseDto[];
     total: number;
@@ -261,6 +266,31 @@ export class EventsController {
 
   @Get(':id')
   @HttpCode(200)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Fetch an event by its ID (Authenticated Users)' })
+  @ApiParam({
+    name: 'id',
+    description: 'Event ID (UUID)',
+    type: String,
+    example: 'event-uuid-example',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Event found.',
+    type: EventResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Event not found.',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error.',
+  })
   async getEvent(@Param('id') eventId: string): Promise<EventResponseDto> {
     this.logger.log(`Fetching event with ID: ${eventId}`);
     const event = await this.eventsService.findEventById(eventId);
