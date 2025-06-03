@@ -90,5 +90,28 @@ describe('EventsController', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
-});
 
+   describe('getEvents', () => {
+    const listEventsDto = {
+      limit: 10,
+      lastEvaluatedKey: undefined,
+    };
+
+    it('should return list of events', async () => {
+      const mockResult = {
+        events: [mockEvent],
+        total: 1,
+        lastEvaluatedKey: undefined,
+      };
+
+      mockEventsService.FindAllEvents.mockResolvedValue(mockResult);
+      mockEventsService.findEventById.mockResolvedValue(mockEvent);
+
+      const result = await controller.getEvents(listEventsDto);
+
+      expect(service.FindAllEvents).toHaveBeenCalledWith(listEventsDto);
+      expect(result.events).toHaveLength(1);
+      expect(result.total).toBe(1);
+    });
+  });
+});
