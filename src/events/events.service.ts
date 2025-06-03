@@ -29,6 +29,7 @@ import { Event } from './interfaces/event.interface';
 import { EventStatus } from './enums/event-status.enum';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { ListEventsDto } from './dto/find-events-query.dto';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class EventsService {
@@ -43,6 +44,7 @@ export class EventsService {
     private readonly s3Service: S3Service,
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
+    private readonly mailService: MailService,
   ) {
     const tableName = this.configService.get<string>('DYNAMODB_TABLE_EVENTS');
     if (!tableName) {
@@ -286,7 +288,7 @@ export class EventsService {
     const organizer = await this.usersService.findUserById(organizerId);
     if (!organizer) {
       this.logger.warn(`Organizer with ID ${organizerId} not found`);
-      throw new NotFoundException('Organizer not found');
+      throw new InternalServerErrorException('Organizer not found');
     }
 
     if (
@@ -359,6 +361,23 @@ export class EventsService {
     try {
       await this.dynamoDBService.docClient.send(command);
       this.logger.log(`Event created successfully: ${eventId}`);
+
+      try {
+        if (organizer.email) {
+          this.logger.log(`Sending email to organizer: ${organizer.email}`);
+          await this.mailService.sendCreatedEventEmail(
+            organizer.email,
+            organizer.name,
+            newEvent.name,
+            newEvent.date,
+            newEvent.id,
+          );
+          this.logger.log(`Email sent to organizer: ${organizer.email}`);
+        }
+      } catch (error) {
+        this.logger.error(`Error sending email to organizer: ${organizer.email}`, error.stack);
+      }
+
       return new EventResponseDto(newEvent);
     } catch (error) {
       if (s3UploadKey) {
