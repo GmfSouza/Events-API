@@ -131,4 +131,33 @@ describe('EventsController', () => {
       await expect(controller.getEvent('1')).rejects.toThrow(NotFoundException);
     });
   });
-});
+
+  describe('updateEvent', () => {
+    const updateEventDto: UpdateEventDto = {
+      name: 'Updated Event',
+    };
+
+    it('should update an event when user is authorized', async () => {
+      const req = {
+        user: { userId: 'user123', role: UserRole.ORGANIZER },
+      };
+
+      mockEventsService.update.mockResolvedValue(mockEvent);
+
+      const result = await controller.updateEvent('1', updateEventDto, req as any, mockEventImage);
+
+      expect(service.update).toHaveBeenCalledWith('1', updateEventDto, 'user123', mockEventImage);
+      expect(result).toEqual(mockEvent);
+    });
+
+    it('should throw ForbiddenException when user is not authorized', async () => {
+      const req = {
+        user: { userId: 'user123', role: UserRole.PARTICIPANT },
+      };
+
+      await expect(
+        controller.updateEvent('1', updateEventDto, req as any, mockEventImage),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+}); 
