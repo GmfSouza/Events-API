@@ -4,6 +4,9 @@ import {
   GetCommand,
   UpdateCommandInput,
   UpdateCommand,
+  ScanCommand,
+  QueryCommandInput,
+  ScanCommandInput,
 } from '@aws-sdk/lib-dynamodb';
 import {
   BadRequestException,
@@ -25,6 +28,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Event } from './interfaces/event.interface';
 import { EventStatus } from './enums/event-status.enum';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { ListEventsDto } from './dto/find-events-query.dto';
 
 @Injectable()
 export class EventsService {
@@ -32,6 +36,7 @@ export class EventsService {
   private readonly eventsTable: string;
   private readonly eventNameIndex: string = 'name-index';
   private readonly s3EventPath;
+  private readonly statusAndDateIndex: string = 'statusAndDate-index';
 
   constructor(
     private readonly dynamoDBService: DynamoDbService,
@@ -89,7 +94,6 @@ export class EventsService {
     try {
       const response = await this.dynamoDBService.docClient.send(command);
       if (!response.Item) {
-        this.logger.warn(`Event not found by ID: ${eventId}`);
         return null;
       }
 
@@ -99,6 +103,173 @@ export class EventsService {
     } catch (error) {
       this.logger.error(`Error finding event by ID: ${eventId}`, error.stack);
       throw new InternalServerErrorException('Error finding event');
+    }
+  }
+
+  async FindAllEvents(
+    listEventsDto: ListEventsDto,
+  ): Promise<{ events: Event[]; total: number; lastEvaluatedKey?: string }> {
+    const {
+      name,
+      dateBefore,
+      dateAfter,
+      status,
+      limit = 10,
+      lastEvaluatedKey: exclusiveStartKeyString,
+    } = listEventsDto;
+    this.logger.debug(
+      `Listing all events with filters: ${JSON.stringify(listEventsDto)}`,
+    );
+
+    let exclusiveStartKey: Record<string, any> | undefined = undefined;
+    if (exclusiveStartKeyString) {
+      try {
+        exclusiveStartKey = JSON.parse(exclusiveStartKeyString);
+      } catch (error) {
+        this.logger.error(
+          `Error parsing lastEvaluatedKey: ${exclusiveStartKeyString}`,
+          error.stack,
+        );
+        throw new BadRequestException('Invalid lastEvaluatedKey');
+      }
+    }
+
+    const filterExpressionParts: string[] = [];
+    const expressionAttributeValues: Record<string, any> = {};
+    const expressionAttributeNames: Record<string, string> = {};
+    let keyConditionExpression = '';
+
+    let command: QueryCommand | ScanCommand;
+    let operation: 'Query' | 'Scan';
+    let commandInput: QueryCommandInput | ScanCommandInput;
+
+    if (status) {
+      this.logger.log(`Filtering events by status: ${status}`);
+      operation = 'Query';
+      keyConditionExpression = '#statusAttr = :status';
+      expressionAttributeNames['#statusAttr'] = 'status';
+      expressionAttributeValues[':status'] = status;
+
+      if (dateBefore || dateAfter) {
+        expressionAttributeNames['#dateAttr'] = 'date';
+
+        if (dateBefore && dateAfter) {
+          keyConditionExpression +=
+            ' AND #dateAttr BETWEEN :dateAfter AND :dateBefore';
+          expressionAttributeValues[':dateAfter'] = new Date(
+            dateAfter,
+          ).toISOString();
+          expressionAttributeValues[':dateBefore'] = new Date(
+            dateBefore,
+          ).toISOString();
+        } else if (dateBefore) {
+          keyConditionExpression += ' AND #dateAttr <= :dateBefore';
+          expressionAttributeValues[':dateBefore'] = new Date(
+            dateBefore,
+          ).toISOString();
+        } else if (dateAfter) {
+          keyConditionExpression += ' AND #dateAttr >= :dateAfter';
+          expressionAttributeValues[':dateAfter'] = new Date(
+            dateAfter,
+          ).toISOString();
+        }
+      }
+
+      commandInput = {
+        TableName: this.eventsTable,
+        IndexName: this.statusAndDateIndex,
+        KeyConditionExpression: keyConditionExpression,
+        ExpressionAttributeNames: expressionAttributeNames,
+        ExpressionAttributeValues: expressionAttributeValues,
+        Limit: limit,
+        ExclusiveStartKey: exclusiveStartKey,
+        ScanIndexForward: false,
+      };
+
+      if (name) {
+        filterExpressionParts.push('contains(#eventName, :name)');
+        expressionAttributeNames['#eventName'] = 'name';
+        expressionAttributeValues[':name'] = name;
+      }
+    } else {
+      operation = 'Scan';
+      this.logger.warn(`Name filter is not applied when using status filter`);
+
+      if (name) {
+        filterExpressionParts.push('contains(#eventName, :name)');
+        expressionAttributeNames['#eventName'] = 'name';
+        expressionAttributeValues[':name'] = name;
+      }
+
+      if (dateAfter || dateBefore) {
+        expressionAttributeNames['#dateAttr'] = 'date';
+
+        if (dateAfter) {
+          filterExpressionParts.push('#dateAttr >= :dateAfter');
+          expressionAttributeValues[':dateAfter'] = new Date(
+            dateAfter,
+          ).toISOString();
+        }
+
+        if (dateBefore) {
+          filterExpressionParts.push('#dateAttr <= :dateBefore');
+          expressionAttributeValues[':dateBefore'] = new Date(
+            dateBefore,
+          ).toISOString();
+        }
+      }
+
+      commandInput = {
+        TableName: this.eventsTable,
+        Limit: limit,
+        ExclusiveStartKey: exclusiveStartKey,
+      };
+    }
+
+    if (filterExpressionParts.length > 0) {
+      commandInput.FilterExpression = filterExpressionParts.join(' AND ');
+      commandInput.ExpressionAttributeNames = expressionAttributeNames;
+      commandInput.ExpressionAttributeValues = expressionAttributeValues;
+    }
+
+    if (
+      commandInput.ExpressionAttributeNames &&
+      Object.keys(commandInput.ExpressionAttributeNames).length === 0
+    ) {
+      delete commandInput.ExpressionAttributeNames;
+    }
+
+    if (
+      commandInput.ExpressionAttributeValues &&
+      Object.keys(commandInput.ExpressionAttributeValues).length === 0
+    ) {
+      delete commandInput.ExpressionAttributeValues;
+    }
+
+    try {
+      let result;
+
+      if (operation === 'Query') {
+        const command = new QueryCommand(commandInput as QueryCommandInput);
+        result = await this.dynamoDBService.docClient.send(command);
+      } else {
+        const command = new ScanCommand(commandInput as ScanCommandInput);
+        result = await this.dynamoDBService.docClient.send(command);
+      }
+
+      const events = (result.Items || []) as Event[];
+
+      this.logger.log(
+        `(${operation}) Returned ${events.length} events LastEvaluatedKey: ${JSON.stringify(result.LastEvaluatedKey)}`,
+      );
+      return {
+        events,
+        total: result.Count || 0,
+        lastEvaluatedKey: result.LastEvaluatedKey,
+      };
+    } catch (error) {
+      this.logger.error(`Error to list events (${operation}):`, error.stack);
+      throw new InternalServerErrorException('Error fetching events.');
     }
   }
 
