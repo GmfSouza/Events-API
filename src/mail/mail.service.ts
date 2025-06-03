@@ -91,4 +91,33 @@ export class MailService {
         await this.sendEmail(userEmail, subject, body, textBody);
     }
 
+    async sendCreatedEventEmail(organizerEmail: string, organizerName: string, eventName: string, eventDate: string, eventId: string): Promise<void> {
+        if(!this.canSendEmail) {
+            this.logger.warn('Email sending is disabled due to missing SES configuration.');
+            return;
+        }
+
+        const formattedDate = new Date(eventDate).toLocaleDateString('pt-BR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZoneName: 'short',
+        });
+        
+        const subject = 'Event Created Successfully';
+        const body = `
+            <h1>Event Created</h1>
+            <p>Dear ${organizerName},</p>
+            <p>Your event "${eventName}" has been created successfully.</p>
+            <p>Date: ${formattedDate}</p>
+            <p>Event ID: ${eventId}</p>
+        `;
+        const textBody = `Hello ${organizerName}, your event "${eventName}" has been created successfully on ${formattedDate}. Event ID: ${eventId}`;
+
+        await this.sendEmail(organizerEmail, subject, body, textBody);
+    }
+
 }
