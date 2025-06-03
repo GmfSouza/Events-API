@@ -252,6 +252,29 @@ export class RegistrationsService {
       this.logger.log(
         `Registration cancelled successfully for userId: ${requestingUserId}, eventId: ${eventId}`,
       );
+
+      const participant =
+        await this.usersService.findUserById(requestingUserId);
+      if (participant && participant.email && event) {
+        try {
+          this.logger.log(
+            `Sending cancellation confirmation email to userId: ${requestingUserId}, eventId: ${eventId}`,
+          );
+          await this.mailService.sendRegistrationCancellationNotification(
+            participant.email,
+            participant.name,
+            event.name,
+          );
+
+          this.logger.log(
+            `Cancellation confirmation email sent successfully to userId: ${requestingUserId}, eventId: ${eventId}`,
+          );
+        } catch (emailError) {
+          this.logger.error(
+            `Error sending cancellation confirmation email: ${emailError}`,
+          );
+        }
+      }
     } catch (error) {
       this.logger.error(`Error cancelling registration: ${error}`);
       throw new InternalServerErrorException('Error cancelling registration');
