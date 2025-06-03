@@ -120,4 +120,21 @@ export class MailService {
         await this.sendEmail(organizerEmail, subject, body, textBody);
     }
 
+    async sendEventDeletedEmail(organizerEmail: string, organizerName: string, eventName: string): Promise<void> {
+        if(!this.canSendEmail) {
+            this.logger.warn('Email sending is disabled due to missing SES configuration.');
+            return;
+        }
+
+        const subject = 'Event Deleted';
+        const body = `
+            <h1>Event Deleted</h1>
+            <p>Dear ${organizerName},</p>
+            <p>Your event "${eventName}" has been deleted successfully.</p>
+        `;
+        const textBody = `Hello ${organizerName}, your event "${eventName}" has been deleted successfully.`;
+
+        await this.sendEmail(organizerEmail, subject, body, textBody);
+    }
+
 }
