@@ -174,4 +174,84 @@ describe('MailService', () => {
       expect(sesClient.send).toHaveBeenCalledTimes(1);
     });
   });
+
+    describe('sendCreatedEventEmail', () => {
+    const testParams = {
+      organizerEmail: 'organizer@example.com',
+      organizerName: 'John Doe',
+      eventName: 'Test Event',
+      eventDate: '2024-01-01T10:00:00Z',
+      eventId: 'event123',
+    };
+
+    it('should send created event email successfully', async () => {
+      const spyLogger = jest.spyOn(Logger.prototype, 'log');
+      
+      await mailService.sendCreatedEventEmail(
+        testParams.organizerEmail,
+        testParams.organizerName,
+        testParams.eventName,
+        testParams.eventDate,
+        testParams.eventId,
+      );
+
+      expect(SendEmailCommand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          Destination: {
+            ToAddresses: [testParams.organizerEmail],
+          },
+          Message: {
+            Subject: {
+              Data: 'Event Created Successfully',
+              charset: 'UTF-8',
+            },
+            Body: {
+              Html: {
+                Data: expect.stringContaining(testParams.eventName),
+                charset: 'UTF-8',
+              },
+              Text: {
+                Data: expect.stringContaining(testParams.eventName),
+                charset: 'UTF-8',
+              },
+            },
+          },
+          Source: 'test@example.com',
+        }),
+      );
+      
+      expect(spyLogger).toHaveBeenCalledWith(
+        `Email sent to ${testParams.organizerEmail}`,
+      );
+    });
+
+    it('should handle disabled email sending when configuration is missing', async () => {
+      const spyLogger = jest.spyOn(Logger.prototype, 'warn');
+      jest.spyOn(configService, 'get').mockImplementation(() => undefined);
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          MailService,
+          {
+            provide: ConfigService,
+            useValue: { get: () => undefined },
+          },
+        ],
+      }).compile();
+
+      const disabledMailService = module.get<MailService>(MailService);
+
+      await disabledMailService.sendCreatedEventEmail(
+        testParams.organizerEmail,
+        testParams.organizerName,
+        testParams.eventName,
+        testParams.eventDate,
+        testParams.eventId,
+      );
+
+      expect(spyLogger).toHaveBeenCalledWith(
+        'Email sending is disabled due to missing SES configuration.',
+      );
+    });
+  })
 });
