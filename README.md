@@ -168,6 +168,7 @@ This project requires the following AWS services to be configured in your accoun
 * `main.ts`: Main file of the NestJS application.
 * `app.module.ts`: Root module of the application.
 
+---
 
 ## Versão em Português
 
