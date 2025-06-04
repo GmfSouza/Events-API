@@ -261,8 +261,8 @@ describe('EventsService', () => {
       jest.spyOn(service, 'findEventById').mockResolvedValue(mockEvent);
 
       (dynamoDbService.docClient.send as jest.Mock)
-        .mockResolvedValueOnce({ Item: mockEvent }) // busca
-        .mockResolvedValueOnce({ Attributes: updatedEvent }); // update
+        .mockResolvedValueOnce({ Item: mockEvent }) 
+        .mockResolvedValueOnce({ Attributes: updatedEvent }); 
 
       const result = await service.update('1', dto, mockRequester.id, mockFile);
       console.log('result', result);
@@ -362,7 +362,7 @@ describe('EventsService', () => {
     it('should soft delete event successfully', async () => {
       jest.clearAllMocks();
       (dynamoDbService.docClient.send as jest.Mock)
-        .mockResolvedValueOnce({ Item: mockEvent }) // 1ª chamada: busca evento
+        .mockResolvedValueOnce({ Item: mockEvent }) 
         .mockResolvedValueOnce({});
       await service.softDelete('1', mockOrganizer.id);
       expect(dynamoDbService.docClient.send).toHaveBeenCalledTimes(2);
@@ -372,7 +372,7 @@ describe('EventsService', () => {
     it('should throw NotFoundException if event not found', async () => {
       (dynamoDbService.docClient.send as jest.Mock).mockResolvedValueOnce({
         Item: null,
-      }); // busca evento retorna null
+      }); 
       await expect(
         service.softDelete('not-found', mockOrganizer.id),
       ).rejects.toThrow(NotFoundException);
@@ -412,8 +412,7 @@ describe('EventsService', () => {
     it('should throw ForbiddenException if not owner or admin', async () => {
       (dynamoDbService.docClient.send as jest.Mock).mockResolvedValueOnce({
         Item: mockEvent,
-      }); // busca evento retorna evento
-      // depois: usersService.findUserById.mockResolvedValue({ ...mockOrganizer, id: 'other', role: UserRole.PARTICIPANT })
+      }); 
       usersService.findUserById.mockResolvedValue({
         ...mockOrganizer,
         id: 'other',
