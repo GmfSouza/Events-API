@@ -35,7 +35,17 @@ async function bootstrap() {
     .setDescription('Compass Events, which operates in the event creation and registration segment')
     .setVersion('1.0')
     .addTag('events')
-    .addBearerAuth()
+    .addBearerAuth(
+      { 
+        type: 'http', 
+        scheme: 'bearer', 
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'insert the JWT token',
+        in: 'header',
+      },
+      'jwt-token',
+    )
     .build();
 
   const documentFactory = () => SwaggerModule.createDocument(app, config);
