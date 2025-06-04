@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from './mail.service';
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { Logger } from '@nestjs/common';
 
 beforeAll(() => {
@@ -15,6 +15,7 @@ jest.mock('@aws-sdk/client-ses', () => ({
     send: jest.fn(),
   })),
   SendEmailCommand: jest.fn(),
+  SendRawEmailCommand: jest.fn(),
 }));
 
 describe('MailService', () => {
@@ -367,6 +368,202 @@ describe('MailService', () => {
         'Email sending is disabled due to missing SES configuration.',
       );
       expect(SendEmailCommand).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sendRegistrationNotification', () => {
+    it('should send registration notification with ICS when calendar generation succeeds', async () => {
+      const spySendEmailWithICS = jest
+        .spyOn(mailService as any, 'sendEmailWithICS')
+        .mockResolvedValue(undefined);
+      const spyGenerateICalendarData = jest
+        .spyOn(mailService as any, 'generateICalendarData')
+        .mockReturnValue('ICS_DATA');
+
+      await mailService.sendRegistrationNotification(
+        'participant@example.com',
+        'Participant',
+        'Event Name',
+        '2024-01-01T10:00:00Z',
+        'Event Description',
+        'event-123'
+      );
+
+      expect(spyGenerateICalendarData).toHaveBeenCalled();
+      expect(spySendEmailWithICS).toHaveBeenCalledWith(
+        'participant@example.com',
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        'ICS_DATA',
+        'Event Name'
+      );
+    });
+
+    it('should fallback to sendEmail if calendar generation fails', async () => {
+      const spyGenerateICalendarData = jest
+        .spyOn(mailService as any, 'generateICalendarData')
+        .mockReturnValue(null);
+      const spySendEmail = jest
+        .spyOn(mailService as any, 'sendEmail')
+        .mockResolvedValue(undefined);
+
+      await mailService.sendRegistrationNotification(
+        'participant@example.com',
+        'Participant',
+        'Event Name',
+        '2024-01-01T10:00:00Z',
+        'Event Description',
+        'event-123'
+      );
+
+      expect(spyGenerateICalendarData).toHaveBeenCalled();
+      expect(spySendEmail).toHaveBeenCalledWith(
+        'participant@example.com',
+        expect.any(String),
+        expect.any(String),
+        expect.any(String)
+      );
+    });
+
+    it('should log error if calendar generation fails', async () => {
+      const spyGenerateICalendarData = jest
+        .spyOn(mailService as any, 'generateICalendarData')
+        .mockReturnValue(null);
+      const spyLogger = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+      const spySendEmail = jest
+        .spyOn(mailService as any, 'sendEmail')
+        .mockResolvedValue(undefined);
+
+      await mailService.sendRegistrationNotification(
+        'participant@example.com',
+        'Participant',
+        'Event Name',
+        '2024-01-01T10:00:00Z',
+        'Event Description',
+        'event-123'
+      );
+
+      expect(spyLogger).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to generate iCalendar data'),
+      );
+      expect(spySendEmail).toHaveBeenCalled();
+    });
+  });
+
+  describe('sendRegistrationCancellationNotification', () => {
+    it('should send registration cancellation notification', async () => {
+      const spySendEmail = jest
+        .spyOn(mailService as any, 'sendEmail')
+        .mockResolvedValue(undefined);
+
+      await mailService.sendRegistrationCancellationNotification(
+        'participant@example.com',
+        'Participant',
+        'Event Name'
+      );
+
+      expect(spySendEmail).toHaveBeenCalledWith(
+        'participant@example.com',
+        'Registration Cancellation',
+        expect.stringContaining('Registration Cancellation'),
+        expect.stringContaining('has been canceled')
+      );
+    });
+
+    it('should log sending cancellation notification', async () => {
+      const spyLogger = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+      jest.spyOn(mailService as any, 'sendEmail').mockResolvedValue(undefined);
+
+      await mailService.sendRegistrationCancellationNotification(
+        'participant@example.com',
+        'Participant',
+        'Event Name'
+      );
+
+      expect(spyLogger).toHaveBeenCalledWith(
+        expect.stringContaining('Sending registration cancellation notification')
+      );
+    });
+  });
+
+  describe('sendEmailWithICS', () => {
+    it('should send email with ICS attachment', async () => {
+      (sesClient.send as jest.Mock).mockResolvedValueOnce({});
+      const spyLogger = jest.spyOn(Logger.prototype, 'log');
+      await (mailService as any).sendEmailWithICS(
+        'to@example.com',
+        'Subject',
+        '<b>body</b>',
+        'text',
+        'ICS_DATA',
+        'Event Name'
+      );
+      expect(SendRawEmailCommand).toHaveBeenCalled();
+      expect(sesClient.send).toHaveBeenCalledTimes(1);
+      expect(spyLogger).toHaveBeenCalledWith(
+        expect.stringContaining('Email with ICS sent to to@example.com')
+      );
+    });
+
+    it('should not send if SES is not configured', async () => {
+      (mailService as any).canSendEmail = false;
+      const spyLogger = jest.spyOn(Logger.prototype, 'warn');
+      await (mailService as any).sendEmailWithICS(
+        'to@example.com',
+        'Subject',
+        '<b>body</b>',
+        'text',
+        'ICS_DATA',
+        'Event Name'
+      );
+      expect(spyLogger).toHaveBeenCalledWith(
+        'Email sending is disabled due to missing SES configuration.'
+      );
+    });
+
+    it('should log error if sending fails', async () => {
+      (mailService as any).canSendEmail = true;
+      (mailService as any).sesClient = sesClient;
+      (sesClient.send as jest.Mock).mockRejectedValueOnce(new Error('fail'));
+      const spyLogger = jest.spyOn(Logger.prototype, 'error');
+      await (mailService as any).sendEmailWithICS(
+        'to@example.com',
+        'Subject',
+        '<b>body</b>',
+        'text',
+        'ICS_DATA',
+        'Event Name'
+      );
+      expect(spyLogger).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to send email with ICS to to@example.com:'),
+        expect.any(Error)
+      );
+    });
+  });
+
+  describe('generateICalendarData', () => {
+    it('should generate valid ICS data', () => {
+      const result = (mailService as any).generateICalendarData(
+        'Event Name',
+        '2025-01-01T10:00:00Z',
+        'Description',
+        'event-123'
+      );
+      expect(result).toContain('BEGIN:VCALENDAR');
+      expect(result).toContain('SUMMARY:Event Name');
+    });
+
+    it('should return null and log error if date is invalid', () => {
+      const spyLogger = jest.spyOn(Logger.prototype, 'error');
+      const result = (mailService as any).generateICalendarData(
+        'Event Name',
+        'invalid-date',
+        'Description',
+        'event-123'
+      );
+      expect(result).toBeNull();
+      expect(spyLogger).toHaveBeenCalled();
     });
   });
 });
