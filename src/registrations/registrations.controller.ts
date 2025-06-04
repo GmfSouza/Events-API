@@ -10,7 +10,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RegistrationsService } from './registrations.service';
 import { EventsService } from 'src/events/events.service';
 import { AuthenticatedRequest } from 'src/users/interfaces/auth-request.interface';
@@ -33,6 +33,18 @@ export class RegistrationsController {
 
   @Post()
   @HttpCode(201)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Create a registration',
+    description: 'Allows an authenticated user (Participant, Organizer, or Admin) to register for an event. The user ID is obtained from the JWT token.',
+  })
+  @ApiBody({ type: CreateRegistrationDto })
+  @ApiResponse({ status: 201, description: 'Registration successful.', type: RegistrationResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid input data (ex: event has passed, event is inactive).' })
+  @ApiResponse({ status: 404, description: 'Event or Participant not found.' })
+  @ApiResponse({ status: 403, description: 'Access denied (ex: user account is inactive).' })
+  @ApiResponse({ status: 409, description: 'User is already registered for this event.' })
+  @ApiResponse({ status: 500, description: 'Internal server error.' })
   async createRegistration(
     @Req() request: AuthenticatedRequest,
     @Body() createRegistrationDto: CreateRegistrationDto,
