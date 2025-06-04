@@ -1,6 +1,6 @@
 # Compass Events API
 
-### Read in [Portuguese](#Versão-em-Português)
+### Read in [Portuguese](#Compass-Events-API)
 
 
 # About
@@ -169,8 +169,6 @@ This project requires the following AWS services to be configured in your accoun
 * `app.module.ts`: Root module of the application.
 
 ---
-
-## Versão em Português
 
 # Compass Events API
 
