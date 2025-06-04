@@ -108,7 +108,7 @@ This project requires the following AWS services to be configured in your accoun
         
         TARGET_WIDTH=
         TARGET_HEIGHT=
-        RESIZED_IMAGE_PREFIX=""
+        RESIZED_IMAGE_PREFIX=
         
         S3_BUCKET_NAME=
         S3_PROFILE_IMAGE_PATH=
@@ -286,7 +286,7 @@ Este projeto requer que os seguintes serviços AWS estejam configurados na sua c
 
         TARGET_WIDTH=
         TARGET_HEIGHT=
-        RESIZED_IMAGE_PREFIX=""
+        RESIZED_IMAGE_PREFIX=
 
         S3_BUCKET_NAME=
         S3_PROFILE_IMAGE_PATH=
