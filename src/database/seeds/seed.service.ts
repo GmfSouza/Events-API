@@ -17,8 +17,9 @@ export class SeedService {
         const adminName = this.configService.get<string>('DEFAULT_ADMIN_NAME');
         const adminEmail = this.configService.get<string>('DEFAULT_ADMIN_EMAIL');
         const adminPassword = this.configService.get<string>('DEFAULT_ADMIN_PASSWORD');
+        const adminPhone = this.configService.get<string>('DEFAULT_ADMIN_PHONE');
 
-        if (!adminName || !adminEmail || !adminPassword) {
+        if (!adminName || !adminEmail || !adminPassword || !adminPhone) {
             this.logger.warn('Default admin credentials are not set in the environment variables.');
             return;
         }
@@ -34,7 +35,7 @@ export class SeedService {
                 name: adminName,
                 email: adminEmail,
                 password: adminPassword,
-                phone: '5521458763215',
+                phone: adminPhone,
                 role: UserRole.ADMIN,
             }
 
