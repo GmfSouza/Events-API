@@ -20,6 +20,7 @@ import { UsersService } from 'src/users/users.service';
 import { EventResponseDto } from 'src/events/dto/event-response.dto';
 import { ListUserRegistrationsDto } from './dto/find-registrations-query.dto';
 
+@ApiBearerAuth('jwt-token')
 @ApiTags('registrations')
 @Controller('registrations')
 export class RegistrationsController {
@@ -33,7 +34,6 @@ export class RegistrationsController {
 
   @Post()
   @HttpCode(201)
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Create a registration',
     description: 'Allows an authenticated user (Participant, Organizer, or Admin) to register for an event. The user ID is obtained from the JWT token.',
@@ -93,7 +93,6 @@ export class RegistrationsController {
 
   @Get()
   @HttpCode(200)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'List all authenticated user registrations' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'NNumber of items per page', schema: { default: 10, minimum: 1, maximum: 50 } })
   @ApiQuery({ name: 'lastEvaluatedKey', required: false, type: String, description: 'Key to continue pagination (JSON stringified)' })
@@ -138,7 +137,6 @@ export class RegistrationsController {
 
   @Delete(':eventId')
   @HttpCode(204)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Inactivate a user registration for an event' })
   @ApiParam({ name: 'eventId', description: 'ID of the event for which the registration will be canceled', type: String, format: 'uuid' })
   @ApiResponse({ status: 204, description: 'Registration successfully canceled.' })

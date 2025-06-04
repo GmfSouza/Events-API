@@ -33,6 +33,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ListUsersDto } from './dto/find-users-query.dto';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiBearerAuth('jwt-token')
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
@@ -95,7 +96,6 @@ export class UsersController {
     });
   }
   
-  @ApiBearerAuth()
   @Get(':id')
   @HttpCode(200)
   @ApiOperation({ summary: 'Fetch a user by their ID (Admin or self)' })
@@ -126,7 +126,6 @@ export class UsersController {
     });
   }
   
-  @ApiBearerAuth()
   @Get()
   @HttpCode(200)
   @ApiOperation({ summary: 'List all users. admin only' })
@@ -138,7 +137,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'List of users and pagination information.', schema: {
     type: 'object',
     properties: {
-        users: { type: 'array', items: { $ref: '#src/users/dto/UserResponseDto'}},
+        users: { type: 'array', items: { $ref: '#components/schemas/UserResponseDto'}},
         count: { type: 'integer', example: 10},
         lastEvaluatedKey: { type: 'object', example: {"id": {"S": "some-id"}}, nullable: true, description: 'Key for the next page, if it exists.'}
     }
@@ -166,7 +165,6 @@ export class UsersController {
     };
   }
 
-  @ApiBearerAuth()
   @Patch(':id')
   @HttpCode(200)
   @ApiOperation({ summary: 'Update an existing user. (Self only)' })
@@ -193,7 +191,6 @@ export class UsersController {
     });
   }
 
-  @ApiBearerAuth()
   @Delete(':id')
   @HttpCode(204)
   @ApiOperation({ summary: 'Soft delete a user (Admin or self)' })

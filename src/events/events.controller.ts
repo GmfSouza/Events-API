@@ -39,6 +39,7 @@ import {
 } from '@nestjs/swagger';
 import { EventStatus } from './enums/event-status.enum';
 
+@ApiBearerAuth('jwt-token')
 @ApiTags('events')
 @Controller('events')
 export class EventsController {
@@ -48,7 +49,6 @@ export class EventsController {
 
   @Post()
   @HttpCode(201)
-  @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('eventImage'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
@@ -147,7 +147,6 @@ export class EventsController {
 
   @Get()
   @HttpCode(200)
-  @ApiBearerAuth()
   @ApiOperation({
     summary:
       'List all events with filters and pagination (Authenticated Users)',
@@ -266,7 +265,6 @@ export class EventsController {
 
   @Get(':id')
   @HttpCode(200)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Fetch an event by its ID (Authenticated Users)' })
   @ApiParam({
     name: 'id',
@@ -304,7 +302,6 @@ export class EventsController {
 
   @Patch(':id')
   @HttpCode(200)
-  @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('eventImage'))
   @ApiOperation({
     summary: 'Update an existing event (Admin or event organizer)',
@@ -417,7 +414,6 @@ export class EventsController {
 
   @Delete(':id')
   @HttpCode(204)
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Inactive an event (Admin or event organizer)',
   })
