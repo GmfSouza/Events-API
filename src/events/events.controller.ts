@@ -67,7 +67,7 @@ export class EventsController {
           type: 'string',
           example: 'A conference about technology.',
         },
-        eventDate: {
+        date: {
           type: 'string',
           format: 'date-time',
           example: '2026-07-10T19:00:00Z',
@@ -202,7 +202,7 @@ export class EventsController {
       properties: {
         events: {
           type: 'array',
-          items: { $ref: `#/events/dtos/EventResponseDto` },
+          items: { $ref: `#/components/schemas/EventResponseDto` },
         },
         count: { type: 'integer', example: 1 },
         lastEvaluatedKey: {
