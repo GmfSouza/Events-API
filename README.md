@@ -1,6 +1,6 @@
-# Compass Events
+# Compass Events API
 
-*Read in [Portuguese](#Compass Events - pt)*
+### Read in [Portuguese](#Compass-Events-API-pt)
 
 
 # About
@@ -108,7 +108,7 @@ This project requires the following AWS services to be configured in your accoun
         
         TARGET_WIDTH=
         TARGET_HEIGHT=
-        RESIZED_IMAGE_PREFIX=""
+        RESIZED_IMAGE_PREFIX=
         
         S3_BUCKET_NAME=
         S3_PROFILE_IMAGE_PATH=
@@ -168,10 +168,9 @@ This project requires the following AWS services to be configured in your accoun
 * `main.ts`: Main file of the NestJS application.
 * `app.module.ts`: Root module of the application.
 
+---
 
-## Versão em Português
-
-# Compass Events - pt
+# Compass Events API pt
 
 # Sobre
 API Node.js para um sistema de reservas de espaços. Esta API permite o gerenciamento de usuários, eventos e inscrições, com autenticação e funcionalidades específicas para diferentes tipos de usuários (participantes, organizadores, administradores).
@@ -287,7 +286,7 @@ Este projeto requer que os seguintes serviços AWS estejam configurados na sua c
 
         TARGET_WIDTH=
         TARGET_HEIGHT=
-        RESIZED_IMAGE_PREFIX=""
+        RESIZED_IMAGE_PREFIX=
 
         S3_BUCKET_NAME=
         S3_PROFILE_IMAGE_PATH=
