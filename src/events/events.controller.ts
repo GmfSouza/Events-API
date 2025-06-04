@@ -316,8 +316,7 @@ export class EventsController {
     type: String,
   })
   @ApiBody({
-    description:
-      'Data to update. All fields are optional.',
+    description: 'Data to update. All fields are optional.',
     type: UpdateEventDto,
     schema: {
       type: 'object',
@@ -419,6 +418,32 @@ export class EventsController {
 
   @Delete(':id')
   @HttpCode(204)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Inactive an event (Admin or event organizer)',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'ID of the event to be deactivated',
+    type: String,
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Event deactivated successfully.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Event not found.',
+  })
+  @ApiResponse({ status: 403, description: 'Access denied.' })
+  @ApiResponse({
+    status: 400,
+    description: 'Event is already inactive.',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error.',
+  })
   async deleteEvent(
     @Param('id') eventId: string,
     @Req() request: AuthenticatedRequest,
