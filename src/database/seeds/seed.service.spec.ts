@@ -28,33 +28,35 @@ describe('SeedService', () => {
   });
 
   it('should warn and return if admin env vars are missing', async () => {
-    configService.get.mockReturnValueOnce(undefined); // adminName
+    configService.get.mockReturnValueOnce(undefined);
     await service.seedUser();
     expect(Logger.prototype.warn).toHaveBeenCalledWith(
-      'Default admin credentials are not set in the environment variables.'
+      'Default admin credentials are not set in the environment variables.',
     );
   });
 
   it('should warn and return if user already exists', async () => {
     configService.get
-      .mockReturnValueOnce('Admin') // name
-      .mockReturnValueOnce('admin@email.com') // email
-      .mockReturnValueOnce('pass') // password
-      .mockReturnValueOnce('123'); // phone
+      .mockReturnValueOnce('Admin')
+      .mockReturnValueOnce('admin@email.com')
+      .mockReturnValueOnce('pass')
+      .mockReturnValueOnce('123');
     usersService.findUserByEmail.mockResolvedValueOnce({ id: '1' });
     await service.seedUser();
-    expect(usersService.findUserByEmail).toHaveBeenCalledWith('admin@email.com');
+    expect(usersService.findUserByEmail).toHaveBeenCalledWith(
+      'admin@email.com',
+    );
     expect(Logger.prototype.warn).toHaveBeenCalledWith(
-      'User with email admin@email.com already exists.'
+      'User with email admin@email.com already exists.',
     );
   });
 
   it('should create admin user if not exists', async () => {
     configService.get
-      .mockReturnValueOnce('Admin') // name
-      .mockReturnValueOnce('admin@email.com') // email
-      .mockReturnValueOnce('pass') // password
-      .mockReturnValueOnce('123'); // phone
+      .mockReturnValueOnce('Admin')
+      .mockReturnValueOnce('admin@email.com')
+      .mockReturnValueOnce('pass')
+      .mockReturnValueOnce('123');
     usersService.findUserByEmail.mockResolvedValueOnce(null);
     usersService.create.mockResolvedValueOnce({ name: 'Admin' });
     await service.seedUser();
@@ -65,15 +67,17 @@ describe('SeedService', () => {
       phone: '123',
       role: UserRole.ADMIN,
     });
-    expect(Logger.prototype.log).toHaveBeenCalledWith('User Admin created successfully.');
+    expect(Logger.prototype.log).toHaveBeenCalledWith(
+      'User Admin created successfully.',
+    );
   });
 
   it('should log error if user creation throws', async () => {
     configService.get
-      .mockReturnValueOnce('Admin') // name
-      .mockReturnValueOnce('admin@email.com') // email
-      .mockReturnValueOnce('pass') // password
-      .mockReturnValueOnce('123'); // phone
+      .mockReturnValueOnce('Admin')
+      .mockReturnValueOnce('admin@email.com')
+      .mockReturnValueOnce('pass')
+      .mockReturnValueOnce('123');
     usersService.findUserByEmail.mockResolvedValueOnce(null);
     usersService.create.mockRejectedValueOnce(new Error('fail'));
     await service.seedUser();
