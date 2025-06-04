@@ -10,7 +10,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RegistrationsService } from './registrations.service';
 import { EventsService } from 'src/events/events.service';
 import { AuthenticatedRequest } from 'src/users/interfaces/auth-request.interface';
@@ -138,6 +138,14 @@ export class RegistrationsController {
 
   @Delete(':eventId')
   @HttpCode(204)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Inactivate a user registration for an event' })
+  @ApiParam({ name: 'eventId', description: 'ID of the event for which the registration will be canceled', type: String, format: 'uuid' })
+  @ApiResponse({ status: 204, description: 'Registration successfully canceled.' })
+  @ApiResponse({ status: 404, description: 'Registration not found.' })
+  @ApiResponse({ status: 400, description: 'Registration already canceled or event has already occurred.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 500, description: 'Internal server error.' })
   async cancelRegistration(
     @Param('eventId') eventId: string,
     @Req() request: AuthenticatedRequest,
