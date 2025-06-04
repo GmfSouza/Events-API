@@ -304,6 +304,77 @@ export class EventsController {
 
   @Patch(':id')
   @HttpCode(200)
+  @ApiBearerAuth()
+  @UseInterceptors(FileInterceptor('eventImage'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Update an existing event (Admin or event organizer)',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'ID of the event to be updated',
+    type: String,
+  })
+  @ApiBody({
+    description:
+      'Data to update. All fields are optional.',
+    type: UpdateEventDto,
+    schema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          example: 'Updated Event Name',
+        },
+        description: {
+          type: 'string',
+          example: 'Updated event description.',
+        },
+        eventDate: {
+          type: 'string',
+          format: 'date-time',
+          example: '2026-08-01T12:00:00Z',
+        },
+        organizerId: {
+          type: 'string',
+          format: 'uuid',
+          example: 'uuid-example',
+          description: 'ID of the new organizer.',
+        },
+        eventImage: {
+          type: 'string',
+          format: 'binary',
+          description: 'New image file for the event. Max size: 5MB.',
+          nullable: true,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Event updated successfully.',
+    type: EventResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Event not found.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Access denied.',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'The new event name is already in use.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid data.',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error.',
+  })
   @UseInterceptors(FileInterceptor('eventImage'))
   async updateEvent(
     @Param('id') eventId: string,
