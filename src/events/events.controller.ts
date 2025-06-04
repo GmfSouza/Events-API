@@ -306,7 +306,6 @@ export class EventsController {
   @HttpCode(200)
   @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('eventImage'))
-  @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Update an existing event (Admin or event organizer)',
   })
@@ -343,7 +342,7 @@ export class EventsController {
         eventImage: {
           type: 'string',
           format: 'binary',
-          description: 'New image file for the event. Max size: 5MB.',
+          description: 'New image file for the event. Max size: 5MB. (if not provided, you can pass a json with the other fields)',
           nullable: true,
         },
       },
