@@ -170,7 +170,7 @@ This project requires the following AWS services to be configured in your accoun
 
 ---
 
-# Compass Events API - pt
+# Compass Events API pt
 
 # Sobre
 API Node.js para um sistema de reservas de espaços. Esta API permite o gerenciamento de usuários, eventos e inscrições, com autenticação e funcionalidades específicas para diferentes tipos de usuários (participantes, organizadores, administradores).
