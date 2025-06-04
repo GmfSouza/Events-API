@@ -8,6 +8,7 @@ import { RegistrationsModule } from './registrations/registrations.module';
 import { AwsModule } from './aws/aws.module';
 import { ConfigModule } from '@nestjs/config';
 import { MailModule } from './mail/mail.module';
+import { SeedModule } from './database/seeds/seed.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { MailModule } from './mail/mail.module';
     RegistrationsModule,
     AwsModule,
     MailModule,
+    SeedModule
   ],
   controllers: [AppController],
   providers: [AppService],
