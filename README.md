@@ -1,6 +1,6 @@
 # Compass Events
 
-*Read in [Portuguese](#Compass Events - pt)*
+### Read in [Portuguese](#Versão-em-Português)
 
 
 # About
