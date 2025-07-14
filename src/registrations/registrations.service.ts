@@ -56,9 +56,6 @@ export class RegistrationsService {
     userId: string,
     eventId: string,
   ): Promise<Registration | null> {
-    this.logger.log(
-      `Checking for existing registration for userId: ${userId}, eventId: ${eventId}`,
-    );
     const command = new GetCommand({
       TableName: this.regTableName,
       Key: {
@@ -70,18 +67,10 @@ export class RegistrationsService {
     try {
       const response = await this.dynamoDbService.docClient.send(command);
       if (response.Item) {
-        this.logger.log(
-          `Found existing active registration for userId: ${userId}, eventId: ${eventId}`,
-        );
         return response.Item as Registration;
       }
-
-      this.logger.log(
-        `No existing registration found for userId: ${userId}, eventId: ${eventId}`,
-      );
       return null;
     } catch (error) {
-      this.logger.error(`Error checking for existing registration: ${error}`);
       throw new InternalServerErrorException(
         'Error checking for existing registration',
       );
@@ -92,28 +81,21 @@ export class RegistrationsService {
     userId: string,
     createRegistrationDto: CreateRegistrationDto,
   ): Promise<Registration> {
-    this.logger.log(
-      `Creating registration for userId: ${userId}, eventId: ${createRegistrationDto.eventId}`,
-    );
     const { eventId } = createRegistrationDto;
 
     const user = await this.usersService.findUserById(userId);
     if (!user) {
-      this.logger.error(`User not found for userId: ${userId}`);
       throw new NotFoundException('User not found');
     }
     if (!user.isActive) {
-      this.logger.error(`User is not active for userId: ${userId}`);
       throw new ForbiddenException('User is not active');
     }
 
     const event = await this.eventsService.findEventById(eventId);
     if (!event) {
-      this.logger.error(`Event not found for eventId: ${eventId}`);
       throw new NotFoundException('Event not found');
     }
     if (event.status !== EventStatus.ACTIVE) {
-      this.logger.error(`Event is cancelled for eventId: ${eventId}`);
       throw new BadRequestException(
         'You cannot register for an event that is not active',
       );
@@ -121,7 +103,6 @@ export class RegistrationsService {
 
     const eventDate = new Date(event.date);
     if (eventDate < new Date()) {
-      this.logger.error(`Event date has passed for eventId: ${eventId}`);
       throw new BadRequestException(
         'You cannot register for an event that has already occurred',
       );
@@ -132,7 +113,6 @@ export class RegistrationsService {
       eventId,
     );
     if (existingRegistration) {
-      this.logger.error(`User already registered for eventId: ${eventId}`);
       throw new ConflictException('You are already registered for this event');
     }
 
@@ -155,15 +135,8 @@ export class RegistrationsService {
 
     try {
       await this.dynamoDbService.docClient.send(command);
-      this.logger.log(
-        `Registration created successfully for userId: ${userId}, eventId: ${eventId}`,
-      );
-
       if (user.email && event) {
         try {
-          this.logger.log(
-            `Sending registration confirmation email to userId: ${userId}, eventId: ${eventId}`,
-          );
           await this.mailService.sendRegistrationNotification(
             user.email,
             user.name,
@@ -185,7 +158,6 @@ export class RegistrationsService {
 
       return newRegistration;
     } catch (error) {
-      this.logger.error(`Error creating registration: ${error}`);
       throw new InternalServerErrorException('Error creating registration');
     }
   }
@@ -194,25 +166,15 @@ export class RegistrationsService {
     requestingUserId: string,
     eventId: string,
   ): Promise<void> {
-    this.logger.log(
-      `Soft deleting registration for userId: ${requestingUserId}, eventId: ${eventId}`,
-    );
-
     const registration = await this.findExistingRegistration(
       requestingUserId,
       eventId,
     );
     if (!registration) {
-      this.logger.error(
-        `Registration not found for userId: ${requestingUserId}, eventId: ${eventId}`,
-      );
       throw new NotFoundException('Registration not found');
     }
 
     if (registration.status === RegistrationStatus.CANCELLED) {
-      this.logger.error(
-        `Registration is already cancelled for userId: ${requestingUserId}, eventId: ${eventId}`,
-      );
       throw new ConflictException('Registration is already cancelled');
     }
 
@@ -220,7 +182,6 @@ export class RegistrationsService {
     if (event) {
       const eventDate = new Date(event.date);
       if (eventDate < new Date()) {
-        this.logger.error(`Event date has passed for eventId: ${eventId}`);
         throw new BadRequestException(
           'You cannot cancel a registration for an event that has already occurred',
         );
@@ -249,9 +210,6 @@ export class RegistrationsService {
       await this.dynamoDbService.docClient.send(
         new UpdateCommand(updateCommandInput),
       );
-      this.logger.log(
-        `Registration cancelled successfully for userId: ${requestingUserId}, eventId: ${eventId}`,
-      );
 
       const participant =
         await this.usersService.findUserById(requestingUserId);
@@ -276,7 +234,6 @@ export class RegistrationsService {
         }
       }
     } catch (error) {
-      this.logger.error(`Error cancelling registration: ${error}`);
       throw new InternalServerErrorException('Error cancelling registration');
     }
   }
@@ -290,14 +247,12 @@ export class RegistrationsService {
     lastEvaluatedKey?: string | any;
   }> {
     const { limit = 10, lastEvaluatedKey: exclusiveStartKeyString } = listDto;
-    this.logger.debug(`Finding all registrations for userId: ${userId}`);
 
     let exclusiveStartKey: Record<string, any> | undefined = undefined;
     if (exclusiveStartKeyString) {
       try {
         exclusiveStartKey = JSON.parse(exclusiveStartKeyString);
       } catch (error) {
-        this.logger.error(`Error parsing lastEvaluatedKey: ${error}`);
         throw new BadRequestException('Invalid lastEvaluatedKey');
       }
     }
@@ -346,16 +301,12 @@ export class RegistrationsService {
         }),
       );
 
-      this.logger.log(
-        `Found ${registrationsEventDetails.length} registrations for userId: ${userId}`,
-      );
       return {
         registrationsEventDetails,
         total: response.Count || 0,
         lastEvaluatedKey: response.LastEvaluatedKey,
       };
     } catch (error) {
-      this.logger.error(`Error finding registrations: ${error}`);
       throw new InternalServerErrorException('Error finding registrations');
     }
   }
