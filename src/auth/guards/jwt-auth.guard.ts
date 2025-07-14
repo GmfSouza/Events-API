@@ -6,12 +6,8 @@ import { IS_PUBLIC_KEY } from "../decorators/isPublic.decorator";
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
-    private readonly logger = new Logger(JwtAuthGuard.name);
-
     constructor(private readonly reflector: Reflector) {
         super();
-
-        this.logger.log('JwtAuthGuard initialized');
     }
 
     canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
@@ -20,10 +16,8 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
             context.getClass(),
         ]);
         if (isPublic) {
-            this.logger.log('Public route accessed');
             return true;
         }
-        this.logger.log('Private route accessed');
         return super.canActivate(context);
     }
 }

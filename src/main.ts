@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { RolesGuard } from './auth/guards/role-auth.guard';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -28,13 +29,13 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new ClassSerializerInterceptor (reflector));
 
-  app.useGlobalGuards(new JwtAuthGuard(reflector))
+  app.useGlobalGuards(new JwtAuthGuard(reflector));
+  app.useGlobalGuards(new RolesGuard(reflector));
 
   const config = new DocumentBuilder()
     .setTitle('Events API')
     .setDescription('Compass Events, which operates in the event creation and registration segment')
     .setVersion('1.0')
-    .addTag('events')
     .addBearerAuth(
       { 
         type: 'http', 

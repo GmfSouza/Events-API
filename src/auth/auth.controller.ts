@@ -9,7 +9,6 @@ import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/s
 @ApiTags('Auth')
 @Controller()
 export class AuthController {
-    private readonly logger = new Logger(AuthController.name);
     constructor(private readonly authService: AuthService) {}
 
     @Public()
@@ -31,7 +30,7 @@ export class AuthController {
     @ApiResponse({ status: 401, description: 'Invalid credentials.' })
     @ApiResponse({ status: 400, description: 'Missing or incorrect login data.' })
     @ApiResponse({ status: 500, description: 'Internal server error.' })
-    public async login(@Request() req: AuthRequest, @Body() loginDto: LoginDto): Promise<{ access_token: string }>  {
+    async login(@Request() req: AuthRequest, @Body() loginDto: LoginDto): Promise<{ access_token: string }>  {
         return this.authService.login(req.user);
     }
 
@@ -43,10 +42,8 @@ export class AuthController {
     @ApiResponse({ status: 200, description: 'Email validated successfully.', schema: { example: { message: 'Your email address has been successfully validated!'}}})
     @ApiResponse({ status: 400, description: 'Invalid, expired, missing token or email already validated.' })
     @ApiResponse({ status: 500, description: 'Internal server error.' })
-    public async validateEmail(@Query('token') token: string): Promise<{ message: string }> {
-        this.logger.log(`Validating email with token: ${token}`);
+    async validateEmail(@Query('token') token: string): Promise<{ message: string }> {
         if (!token) {
-            this.logger.error('Email validation token is missing');
             throw new BadRequestException('Email validation token is required');
         }
         await this.authService.validateTokenEmail(token);

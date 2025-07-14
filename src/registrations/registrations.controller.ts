@@ -4,7 +4,6 @@ import {
   Delete,
   Get,
   HttpCode,
-  Logger,
   Param,
   Post,
   Query,
@@ -24,8 +23,6 @@ import { ListUserRegistrationsDto } from './dto/find-registrations-query.dto';
 @ApiTags('registrations')
 @Controller('registrations')
 export class RegistrationsController {
-  private readonly logger = new Logger(RegistrationsController.name);
-
   constructor(
     private readonly registrationsService: RegistrationsService,
     private readonly eventsService: EventsService,
@@ -50,9 +47,6 @@ export class RegistrationsController {
     @Body() createRegistrationDto: CreateRegistrationDto,
   ): Promise<RegistrationResponseDto> {
     const authenticatedUser = request.user;
-    this.logger.log(
-      `User ${authenticatedUser.userId} is attempting to register for event ${createRegistrationDto.eventId}`,
-    );
 
     const registration = await this.registrationsService.create(
       authenticatedUser.userId,
@@ -114,13 +108,10 @@ export class RegistrationsController {
     total: number;
     lastEvaluatedKey?: string | any;
   }> {
-    const authhenticatedUser = request.user;
-    this.logger.log(
-      `User ${authhenticatedUser.userId} is retrieving their registrations`,
-    );
+    const authenticatedUser = request.user;
 
     const response = await this.registrationsService.findAllByUserId(
-      authhenticatedUser.userId,
+      authenticatedUser.userId,
       listDto,
     );
 
@@ -149,9 +140,6 @@ export class RegistrationsController {
     @Req() request: AuthenticatedRequest,
   ): Promise<void> {
     const authenticatedUser = request.user;
-    this.logger.log(
-      `User ${authenticatedUser.userId} is attempting to cancel registration for event ${eventId}`,
-    );
 
     await this.registrationsService.cancelRegistration(
       authenticatedUser.userId,
