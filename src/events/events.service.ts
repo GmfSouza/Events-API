@@ -54,11 +54,9 @@ export class EventsService {
     }
     this.s3EventPath = this.configService.get<string>('S3_EVENT_IMAGE_PATH');
     this.eventsTable = tableName;
-    this.logger.log(`Using DynamoDB table: ${this.eventsTable}`);
   }
 
   private async eventNameExists(name: string): Promise<boolean> {
-    this.logger.log(`Checking if event name exists: ${name}`);
     const command = new QueryCommand({
       TableName: this.eventsTable,
       IndexName: this.eventNameIndex,
@@ -76,10 +74,6 @@ export class EventsService {
       const response = await this.dynamoDBService.docClient.send(command);
       return !!response.Items && response.Items.length > 0;
     } catch (error) {
-      this.logger.error(
-        `Error checking if event name exists: ${name}`,
-        error.stack,
-      );
       throw new InternalServerErrorException(
         'Error checking if event name exists',
       );
@@ -87,7 +81,6 @@ export class EventsService {
   }
 
   async findEventById(eventId: string): Promise<Event | null> {
-    this.logger.log(`Finding event by ID: ${eventId}`);
     const command = new GetCommand({
       TableName: this.eventsTable,
       Key: { id: eventId },
@@ -99,11 +92,9 @@ export class EventsService {
         return null;
       }
 
-      this.logger.log(`Event found by ID: ${eventId}`);
       const event = response.Item as Event;
       return event;
     } catch (error) {
-      this.logger.error(`Error finding event by ID: ${eventId}`, error.stack);
       throw new InternalServerErrorException('Error finding event');
     }
   }
@@ -119,19 +110,12 @@ export class EventsService {
       limit = 10,
       lastEvaluatedKey: exclusiveStartKeyString,
     } = listEventsDto;
-    this.logger.debug(
-      `Listing all events with filters: ${JSON.stringify(listEventsDto)}`,
-    );
 
     let exclusiveStartKey: Record<string, any> | undefined = undefined;
     if (exclusiveStartKeyString) {
       try {
         exclusiveStartKey = JSON.parse(exclusiveStartKeyString);
       } catch (error) {
-        this.logger.error(
-          `Error parsing lastEvaluatedKey: ${exclusiveStartKeyString}`,
-          error.stack,
-        );
         throw new BadRequestException('Invalid lastEvaluatedKey');
       }
     }
@@ -146,7 +130,6 @@ export class EventsService {
     let commandInput: QueryCommandInput | ScanCommandInput;
 
     if (status) {
-      this.logger.log(`Filtering events by status: ${status}`);
       operation = 'Query';
       keyConditionExpression = '#statusAttr = :status';
       expressionAttributeNames['#statusAttr'] = 'status';
@@ -195,8 +178,6 @@ export class EventsService {
       }
     } else {
       operation = 'Scan';
-      this.logger.warn(`Name filter is not applied when using status filter`);
-
       if (name) {
         filterExpressionParts.push('contains(#eventName, :name)');
         expressionAttributeNames['#eventName'] = 'name';
@@ -261,16 +242,12 @@ export class EventsService {
 
       const events = (result.Items || []) as Event[];
 
-      this.logger.log(
-        `(${operation}) Returned ${events.length} events LastEvaluatedKey: ${JSON.stringify(result.LastEvaluatedKey)}`,
-      );
       return {
         events,
         total: result.Count || 0,
         lastEvaluatedKey: result.LastEvaluatedKey,
       };
     } catch (error) {
-      this.logger.error(`Error to list events (${operation}):`, error.stack);
       throw new InternalServerErrorException('Error fetching events.');
     }
   }
@@ -281,13 +258,8 @@ export class EventsService {
     eventImage: Express.Multer.File,
   ): Promise<EventResponseDto> {
     const { name, description, date } = createEventDto;
-    this.logger.log(
-      `Creating event with name: ${name}, organizerId: ${organizerId}`,
-    );
-
     const organizer = await this.usersService.findUserById(organizerId);
     if (!organizer) {
-      this.logger.warn(`Organizer with ID ${organizerId} not found`);
       throw new InternalServerErrorException('Organizer not found');
     }
 
@@ -295,25 +267,19 @@ export class EventsService {
       organizer.role !== UserRole.ORGANIZER &&
       organizer.role !== UserRole.ADMIN
     ) {
-      this.logger.warn(
-        `User with ID ${organizerId} is not authorized to create events`,
-      );
       throw new ForbiddenException('You are not authorized to create events');
     }
 
     if (!organizer.isActive) {
-      this.logger.warn(`User with ID ${organizerId} is not active`);
       throw new ForbiddenException('Your account is not active');
     }
 
     if (await this.eventNameExists(name)) {
-      this.logger.warn(`Event with name ${name} already exists`);
       throw new ConflictException('This name is already in use');
     }
 
     const parseEventDate = new Date(date);
     if (parseEventDate <= new Date()) {
-      this.logger.warn(`Event date ${date} is in the past`);
       throw new BadRequestException('Event date cannot be in the past');
     }
 
@@ -323,7 +289,6 @@ export class EventsService {
 
     if (eventImage) {
       try {
-        this.logger.log(`Uploading event image for event: ${eventId}`);
         const s3UploadResult = await this.s3Service.uploadFile(
           eventImage,
           `events-images`,
@@ -331,7 +296,6 @@ export class EventsService {
         );
         eventImageUrl = s3UploadResult.Location;
         s3UploadKey = s3UploadResult.Key;
-        this.logger.log(`Event image uploaded successfully: ${eventImageUrl}`);
       } catch (error) {
         this.logger.error(
           `Error uploading event image for event: ${eventId}`,
@@ -360,11 +324,9 @@ export class EventsService {
 
     try {
       await this.dynamoDBService.docClient.send(command);
-      this.logger.log(`Event created successfully: ${eventId}`);
 
       try {
         if (organizer.email) {
-          this.logger.log(`Sending email to organizer: ${organizer.email}`);
           await this.mailService.sendCreatedEventEmail(
             organizer.email,
             organizer.name,
@@ -372,13 +334,8 @@ export class EventsService {
             newEvent.date,
             newEvent.id,
           );
-          this.logger.log(`Email sent to organizer: ${organizer.email}`);
         }
       } catch (error) {
-        this.logger.error(
-          `Error sending email to organizer: ${organizer.email}`,
-          error.stack,
-        );
       }
 
       return new EventResponseDto({
@@ -390,13 +347,8 @@ export class EventsService {
       });
     } catch (error) {
       if (s3UploadKey) {
-        this.logger.error(
-          `Error creating event: ${eventId}, removing uploaded image from S3`,
-          error.stack,
-        );
         await this.s3Service.deleteFile(s3UploadKey);
       } else {
-        this.logger.error(`Error creating event: ${eventId}`, error.stack);
       }
       throw new InternalServerErrorException('Error creating event');
     }
@@ -408,23 +360,17 @@ export class EventsService {
     requesterId: string,
     eventImage?: Express.Multer.File,
   ): Promise<EventResponseDto> {
-    this.logger.log(
-      `Updating event with ID: ${eventId}, requesterId: ${requesterId}`,
-    );
     const event = await this.findEventById(eventId);
     if (!event) {
-      this.logger.warn(`Event not found: ${eventId}`);
       throw new NotFoundException('Event not found');
     }
 
     const requester = await this.usersService.findUserById(requesterId);
     if (!requester) {
-      this.logger.warn(`Requester with ID ${requesterId} not found`);
       throw new NotFoundException('Requester not found');
     }
 
     if (!requester.isActive) {
-      this.logger.warn(`Requester with ID ${requesterId} is not active`);
       throw new ForbiddenException('Your account is not active');
     }
 
@@ -433,17 +379,10 @@ export class EventsService {
     const isOwner = event.organizerId === requester.id;
 
     if (!(isAdmin || (isOrganizer && isOwner))) {
-      this.logger.warn(
-        `User with ID ${requesterId} is not authorized to update this event`,
-      );
       throw new ForbiddenException(
         'You are not authorized to update this event',
       );
     }
-
-    this.logger.log(
-      `User with ID ${requesterId} is authorized to update event: ${eventId}`,
-    );
 
     const updateExpressionParts: string[] = [];
     const expressionAttributeValues: Record<string, any> = {};
@@ -498,9 +437,6 @@ export class EventsService {
         updateEventDto.organizerId,
       );
       if (!newOrganizer) {
-        this.logger.warn(
-          `New organizer with ID ${updateEventDto.organizerId} not found`,
-        );
         throw new NotFoundException('New organizer not found');
       }
 
@@ -508,9 +444,6 @@ export class EventsService {
         newOrganizer.role !== UserRole.ORGANIZER &&
         newOrganizer.role !== UserRole.ADMIN
       ) {
-        this.logger.warn(
-          `User with ID ${newOrganizer.id} is not authorized to be an organizer`,
-        );
         throw new ForbiddenException(
           "The new organizer doesn't have permission to be an organizer",
         );
@@ -527,7 +460,6 @@ export class EventsService {
     let newImageUrl: string | null | undefined = event.imageUrl;
 
     if (eventImage) {
-      this.logger.log(`Uploading new event image for event: ${eventId}`);
       try {
         const url = new URL(event.imageUrl);
         const path = url.pathname.startsWith('/')
@@ -571,7 +503,6 @@ export class EventsService {
       updateExpressionParts.length === 1 &&
       updateExpressionParts[0].startsWith('#updatedAt')
     ) {
-      this.logger.warn(`No changes detected for event: ${eventId}`);
       return event;
     }
 
@@ -591,7 +522,6 @@ export class EventsService {
       const response = await this.dynamoDBService.docClient.send(
         new UpdateCommand(updateCommandinput),
       );
-      this.logger.log(`Event updated successfully: ${eventId}`);
       if (
         s3OldKeyToDelete &&
         s3NewUploadKey &&
@@ -634,39 +564,28 @@ export class EventsService {
     }
   }
   async softDelete(eventId: string, requesterId: string): Promise<void> {
-    this.logger.log(
-      `Soft deleting event with ID: ${eventId}, requesterId: ${requesterId}`,
-    );
-
     const event = await this.findEventById(eventId);
     if (!event) {
-      this.logger.warn(`Event not found: ${eventId}`);
       throw new NotFoundException('Event not found');
     }
 
     if (event.status === EventStatus.INACTIVE) {
-      this.logger.warn(`Event already inactive: ${eventId}`);
       throw new BadRequestException('Event already inactive');
     }
 
     const requester = await this.usersService.findUserById(requesterId);
 
     if (!requester) {
-      this.logger.warn(`Requester with ID ${requesterId} not found`);
       throw new NotFoundException('Requester ID not found');
     }
 
     if (!requester.isActive) {
-      this.logger.warn(`Requester with ID ${requesterId} is not active`);
       throw new ForbiddenException('Your account is not active');
     }
 
     const isAdmin = requester.role === UserRole.ADMIN;
     const isOwner = event.organizerId === requester.id;
     if (!(isAdmin || isOwner)) {
-      this.logger.warn(
-        `User with ID ${requesterId} is not authorized to delete this event`,
-      );
       throw new ForbiddenException(
         'You are not authorized to delete this event',
       );
@@ -689,23 +608,16 @@ export class EventsService {
 
     try {
       await this.dynamoDBService.docClient.send(command);
-      this.logger.log(`Event soft deleted successfully: ${eventId}`);
 
       const originalOrganizer = await this.usersService.findUserById(
         event.organizerId,
       );
       if (originalOrganizer && originalOrganizer.email) {
         try {
-          this.logger.log(
-            `Sending event deleted email to organizer: ${originalOrganizer.email}`,
-          );
           await this.mailService.sendEventDeletedEmail(
             originalOrganizer.email,
             originalOrganizer.name,
             event.name,
-          );
-          this.logger.log(
-            `Event deleted email sent to organizer: ${originalOrganizer.email}`,
           );
         } catch (error) {
           this.logger.error(
@@ -719,7 +631,6 @@ export class EventsService {
         );
       }
     } catch (error) {
-      this.logger.error(`Error soft deleting event ${eventId}:`, error.stack);
       throw new InternalServerErrorException('Failed to soft delete event');
     }
   }
