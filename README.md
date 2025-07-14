@@ -59,8 +59,8 @@ This project requires the following AWS services to be configured in your accoun
     * Table for Events (`Events`) with GSI for `name` (uniqueness), `organizerId`, and `status`+`eventDate`.
     * Table for Registrations (`Registrations`) with a composite primary key `userId`+`eventId` and GSI for `eventId`.
 2.  **S3:**
-    * A bucket for original images (e.g., `compass-events-images-originals`).
-    * A bucket for resized images (e.g., `compass-events-images-resized`).
+    * A bucket for original images (e.g., `events-images-originals`).
+    * A bucket for resized images (e.g., `events-images-resized`).
 3.  **IAM:**
     * An IAM user for local development with permissions for DynamoDB, S3, SES.
     * An IAM Role for the image resizing Lambda with permissions to read from the S3 originals bucket, write to the S3 resized bucket, and for CloudWatch logs.
@@ -244,8 +244,8 @@ Este projeto requer que os seguintes serviços AWS estejam configurados na sua c
     * Tabela para Eventos (`Events`) com GSI para `name` (unicidade), `organizerId` e `status`+`eventDate`.
     * Tabela para Inscrições (`Registrations`) com chave primária composta `userId`+`eventId` e GSI para `eventId`.
 2.  **S3:**
-    * Um bucket para imagens originais (ex: `compass-events-images-originais`).
-    * Um bucket para imagens redimensionadas (ex: `compass-events-images-redimensionadas`).
+    * Um bucket para imagens originais (ex: `events-images-originals`).
+    * Um bucket para imagens redimensionadas (ex: `events-images-resized`).
 3.  **IAM:**
     * Um usuário IAM para desenvolvimento local com permissões para DynamoDB, S3, SES.
     * Uma Função IAM para a Lambda de redimensionamento de imagem com permissões para ler do bucket S3 de originais, escrever no bucket S3 de redimensionadas e para logs no CloudWatch.
