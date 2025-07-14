@@ -2,9 +2,7 @@ import {
   Body,
   Controller,
   FileTypeValidator,
-  ForbiddenException,
   HttpCode,
-  Logger,
   MaxFileSizeValidator,
   ParseFilePipe,
   Patch,
@@ -38,17 +36,17 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { EventStatus } from './enums/event-status.enum';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 
+@ApiBearerAuth('jwt-token')
 @ApiTags('events')
 @Controller('events')
 export class EventsController {
-  private readonly logger = new Logger(EventsController.name);
-
   constructor(private readonly eventsService: EventsService) {}
 
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @Post()
   @HttpCode(201)
-  @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('eventImage'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
@@ -117,21 +115,8 @@ export class EventsController {
     eventImage: Express.Multer.File,
   ): Promise<EventResponseDto> {
     const authUser = request.user;
-    this.logger.log('Creating event');
-    if (
-      authUser.role !== UserRole.ORGANIZER &&
-      authUser.role !== UserRole.ADMIN
-    ) {
-      this.logger.warn(
-        `Unauthorized access attempt by user: ${authUser.userId} to create an event`,
-      );
-      throw new ForbiddenException(
-        'You do not have permission to access this resource',
-      );
-    }
 
     if (!eventImage) {
-      this.logger.warn(`No event image provided by user: ${authUser.userId}`);
       throw new BadRequestException('You must provide an event image');
     }
 
@@ -140,14 +125,12 @@ export class EventsController {
       authUser.userId,
       eventImage,
     );
-    this.logger.log(`Event created successfully: ${event.name}`);
 
     return event;
   }
 
   @Get()
   @HttpCode(200)
-  @ApiBearerAuth()
   @ApiOperation({
     summary:
       'List all events with filters and pagination (Authenticated Users)',
@@ -230,9 +213,6 @@ export class EventsController {
     total: number;
     lastEvaluatedKey?: string;
   }> {
-    this.logger.log(
-      `Fetching events with query: ${JSON.stringify(ListEventsDto)}`,
-    );
     const result = await this.eventsService.FindAllEvents(ListEventsDto);
 
     const eventsResponseDto = await Promise.all(
@@ -255,7 +235,6 @@ export class EventsController {
         });
       }),
     );
-    this.logger.log(`Fetched ${eventsResponseDto.length} events`);
 
     return {
       events: eventsResponseDto,
@@ -266,7 +245,6 @@ export class EventsController {
 
   @Get(':id')
   @HttpCode(200)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Fetch an event by its ID (Authenticated Users)' })
   @ApiParam({
     name: 'id',
@@ -292,19 +270,17 @@ export class EventsController {
     description: 'Internal server error.',
   })
   async getEvent(@Param('id') eventId: string): Promise<EventResponseDto> {
-    this.logger.log(`Fetching event with ID: ${eventId}`);
     const event = await this.eventsService.findEventById(eventId);
     if (!event) {
-      this.logger.warn(`Event not found with ID: ${eventId}`);
       throw new NotFoundException('Event not found');
     }
 
     return event;
   }
 
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @Patch(':id')
   @HttpCode(200)
-  @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('eventImage'))
   @ApiOperation({
     summary: 'Update an existing event (Admin or event organizer)',
@@ -390,19 +366,6 @@ export class EventsController {
     eventImage?: Express.Multer.File,
   ): Promise<EventResponseDto> {
     const authUser = request.user;
-    this.logger.log(`Updating event with ID: ${eventId}`);
-
-    if (
-      authUser.role !== UserRole.ORGANIZER &&
-      authUser.role !== UserRole.ADMIN
-    ) {
-      this.logger.warn(
-        `Unauthorized access attempt by user: ${authUser.userId} to update event ${eventId}`,
-      );
-      throw new ForbiddenException(
-        'You do not have permission to access this resource',
-      );
-    }
 
     const updatedEvent = await this.eventsService.update(
       eventId,
@@ -410,14 +373,12 @@ export class EventsController {
       authUser.userId,
       eventImage,
     );
-    this.logger.log(`Event with ID ${eventId} updated successfully`);
 
     return updatedEvent;
   }
 
   @Delete(':id')
   @HttpCode(204)
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Inactive an event (Admin or event organizer)',
   })
@@ -448,9 +409,7 @@ export class EventsController {
     @Req() request: AuthenticatedRequest,
   ): Promise<void> {
     const authUser = request.user;
-    this.logger.log(`Deleting event with ID: ${eventId}`);
 
     await this.eventsService.softDelete(eventId, authUser.userId);
-    this.logger.log(`Event with ID ${eventId} deleted successfully`);
   }
 }

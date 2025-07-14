@@ -126,7 +126,16 @@ This project requires the following AWS services to be configured in your accoun
         DEFAULT_ADMIN_PASSWORD=
         DEFAULT_ADMIN_PHONE=
        ```
-4.  **Run the Seed Script (Optional, but recommended to have an admin):**
+4.  **Provision the Database**
+    * This script will create a the necessary DynamoDB tables (Users, Events, Registrations) in your configured AWS Region.
+    ```bash
+    npm run provision:db
+    ```
+    Or with yarn:
+    ```bash
+    yarn provision:db
+    ```
+5.  **Run the Seed Script (Optional, but recommended to have an admin):**
     * This script will create a default administrator user if one does not already exist.
     ```bash
     npm run seed
@@ -135,7 +144,7 @@ This project requires the following AWS services to be configured in your accoun
     ```bash
     yarn seed
     ```
-5.  **Start the Application in Development Mode:**
+6.  **Start the Application in Development Mode:**
     ```bash
     npm run start:dev
     ```
@@ -144,7 +153,7 @@ This project requires the following AWS services to be configured in your accoun
     yarn start:dev
     ```
     The application should start on the port you configured in `.env` (or on port 3000 by default).
-6.  **Access Swagger Documentation:**
+7.  **Access Swagger Documentation:**
     * Open your browser and go to: `http://localhost:<port>/api`
         (e.g., `http://localhost:3000/api`)
     * There you can see all API endpoints, their DTOs, and test them. For protected routes, use the "Authorize" button to enter a JWT token obtained after login.
@@ -155,7 +164,8 @@ This project requires the following AWS services to be configured in your accoun
 * `npm run build`: Compiles TypeScript code to JavaScript (to the `dist` folder).
 * `npm run test`: Runs unit tests with Jest.
 * `npm run test:cov`: Runs unit tests and generates a coverage report.
-* `npm run seed`: Runs the database seeding script.
+* `npm run provision:db`: Runs the script to provision the required DynamoDB tables.
+* `npm run seed`: Runs the seeding script to create the default admin user.
 
 ## Project Structure (Main Folders in `src`)
 * `auth/`: Authentication logic, DTOs, guards, strategies.
@@ -304,8 +314,16 @@ Este projeto requer que os seguintes serviços AWS estejam configurados na sua c
         DEFAULT_ADMIN_PASSWORD=
         DEFAULT_ADMIN_PHONE=
        ```
+4.  **Provisione o Banco de dados**
+    * Esse script criará as tabelas do DynamoDB (Users, Events, Resgistrations) configuradas na sua região AWS configurada.
+    ```bash
+    npm run provision:db
+    ```
+    Ou com yarn:
+    ```bash
+    yarn provision:db
 
-4.  **Execute o Script de Seed (Opcional, mas recomendado para ter um admin):**
+5.  **Execute o Script de Seed (Opcional, mas recomendado para ter um admin):**
     * Este script criará um usuário administrador padrão se ele ainda não existir.
     ```bash
     npm run seed
@@ -315,7 +333,7 @@ Este projeto requer que os seguintes serviços AWS estejam configurados na sua c
     yarn seed
     ```
 
-5.  **Inicie a Aplicação em Modo de Desenvolvimento:**
+6.  **Inicie a Aplicação em Modo de Desenvolvimento:**
     ```bash
     npm run start:dev
     ```
@@ -325,7 +343,7 @@ Este projeto requer que os seguintes serviços AWS estejam configurados na sua c
     ```
     A aplicação deverá iniciar na porta que você configurou no `.env` (ou na porta 3000 por padrão).
 
-6.  **Aceda à Documentação Swagger:**
+7.  **Acesse a Documentação do Swagger:**
     * Abra o seu navegador e vá para: `http://localhost:<PORTA>/api`
         (ex: `http://localhost:3000/api`)
     * Lá você poderá ver todos os endpoints da API, os seus DTOs e testá-los. Para rotas protegidas, use o botão "Authorize" para inserir um token JWT obtido após o login.
@@ -337,7 +355,8 @@ Este projeto requer que os seguintes serviços AWS estejam configurados na sua c
 * `npm run build`: Compila o código TypeScript para JavaScript (para a pasta `dist`).
 * `npm run test`: Executa os testes unitários com Jest.
 * `npm run test:cov`: Executa os testes unitários e gera um relatório de cobertura.
-* `npm run seed`: Executa o script de seeding do banco de dados.
+* `npm run provision:db`: Executa o scrpit de seeding para provisionar as tabelas do banco de dados.
+* `npm run seed`: Executa o script de seeding para criar o usuário admin padrão.
 
 ## Estrutura do Projeto (Principais Pastas em `src`)
 

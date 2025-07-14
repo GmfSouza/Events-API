@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsString,
   Matches,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 import { UserRole } from '../enums/user-role.enum';
@@ -14,10 +15,16 @@ export class CreateUserDto {
     description: 'Name of the user',
     example: 'Example name',
     minLength: 3,
+    maxLength: 70,
   })
   @IsNotEmpty()
   @IsString()
-  @MinLength(3)
+  @MinLength(3, {
+    message: 'Name must be at least 3 characters long',
+  })
+  @MaxLength(70, {
+    message: 'Name must be less than 70 characters long',
+  })
   name: string;
 
   @ApiProperty({
@@ -27,6 +34,9 @@ export class CreateUserDto {
   @IsNotEmpty()
   @IsString()
   @IsEmail()
+  @MaxLength(254, {
+    message: 'Email must be less than 254 characters long',
+  })
   email: string;
 
   @ApiProperty({
@@ -38,10 +48,10 @@ export class CreateUserDto {
   @IsNotEmpty()
   @IsString()
   @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,30}$/,
     {
       message:
-        'Password must contain minimum 8 characters, including letters, numbers, and special characters',
+        'Password must contain minimum 8 characters and maximum 30 characters, including letters, numbers, and special characters',
     },
   )
   password: string;

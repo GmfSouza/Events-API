@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsDateString, IsNotEmpty, IsString, MinLength } from "class-validator";
+import { IsDateString, IsNotEmpty, IsString, MaxLength, MinLength } from "class-validator";
 
 export class CreateEventDto {
     @ApiProperty({
@@ -13,6 +13,9 @@ export class CreateEventDto {
     @MinLength(3, {
         message: 'The name of event cannot be shorter than 3 characters',
     })
+    @MaxLength(100, {
+        message: 'The name of event cannot be longer than 100 characters',
+    })
     name: string;
 
     @ApiProperty({
@@ -25,6 +28,9 @@ export class CreateEventDto {
     @IsString()
     @MinLength(15, {
         message: 'The description of event cannot be shorter than 15 characters',
+    })
+    @MaxLength(500, {
+        message: 'The description of event cannot be longer than 500 characters',
     })
     description: string;
 
