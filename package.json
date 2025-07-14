@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed": "ts-node -r tsconfig-paths/register src/database/seeds/seed.ts"
+    "seed": "ts-node -r tsconfig-paths/register src/database/seeds/seed.ts",
+    "provision:db": "ts-node -r tsconfig-paths/register src/database/provision-db.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.817.0",
@@ -38,6 +39,7 @@
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "dotenv": "^16.5.0",
     "ics": "^3.8.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
