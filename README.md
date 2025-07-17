@@ -256,13 +256,10 @@ A API envia os seguintes emails automáticos:
 - **Inscrição Cancelada**: Enviado ao participante para confirmar que a sua inscrição foi cancelada.
 
 ---
-
 # Funções e Permissões (Lógica de Negócio)
 
 A API implementa um sistema de **Controle de Acesso Baseado em Funções** (RBAC - *Role-Based Access Control*) para garantir que os usuários só possam realizar as ações permitidas para sua função.  
 As principais funções são: **Participant**, **Organizer** e **Admin**.
-
----
 
 ## Gestão de Usuários (`/users`)
 
@@ -295,6 +292,7 @@ A resposta inclui dados do usuário, sem senha.
 - **Exemplo de Sucesso (Admin)**  
   Admin faz uma requisição `GET /users/user-123`.  
   **Resposta**: `200 OK` com os dados do usuário.
+  
     #### Exemplo de Resposta
     ```json
     {
@@ -311,7 +309,8 @@ A resposta inclui dados do usuário, sem senha.
     ```
 
 - **Exemplo de Falha (Não é Dono/Admin)**  
-  Participant com ID `user-456` faz uma requisição `GET /users/user-123`.  
+  Participant com ID `user-456` faz uma requisição `GET /users/user-123`.
+
   **Resposta**: `403 Forbidden`  
   ```json
   {
@@ -321,16 +320,15 @@ A resposta inclui dados do usuário, sem senha.
   }
   ```
 
----
-
 ### `PATCH /users/:id` - Atualizar Usuário
 
 **Regra**:  
 Um usuário só pode atualizar os **próprios** dados.
 
 - **Exemplo de Sucesso (Dono)**  
-  Usuário `user-123` envia uma requisição `PATCH /users/user-123`.  
+  Usuário `user-123` envia uma requisição `PATCH /users/user-123`.
   **Resposta**: `200 OK` com os dados atualizados.
+  
     #### Exemplo de Resposta
     ```json
     {
@@ -347,7 +345,8 @@ Um usuário só pode atualizar os **próprios** dados.
     ```
 
 - **Exemplo de Falha (Não é Dono)**  
-  Usuário `user-456` envia uma requisição `PATCH /users/user-123`.  
+  Usuário `user-456` envia uma requisição `PATCH /users/user-123`.
+  
   **Resposta**: `403 Forbidden`  
   ```json
     {
@@ -356,8 +355,6 @@ Um usuário só pode atualizar os **próprios** dados.
         "statusCode": 403
     }
   ```
-
----
 
 ### `GET /users` - Listar Todos os Usuários
 
@@ -369,7 +366,8 @@ Apenas usuários com a função **Admin** podem listar todos os usuários.
   **Resposta**: `200 OK` com a lista de usuários.
 
 - **Exemplo de Falha (Não é Admin)**  
-  Organizer ou Participant faz uma requisição `GET /users`.  
+  Organizer ou Participant faz uma requisição `GET /users`.
+  
   **Resposta**: `403 Forbidden`  
   ```json
   {
@@ -378,8 +376,6 @@ Apenas usuários com a função **Admin** podem listar todos os usuários.
     "statusCode": 403
   }
   ```
-
----
 
 ## Gestão de Eventos (`/events`)
 
@@ -391,7 +387,8 @@ A criação e gestão de eventos são restritas a **Organizadores** e **Administ
 Apenas usuários com a função **Organizer** ou **Admin** podem criar eventos.
 
 - **Exemplo de Sucesso (Organizer)**  
-  Organizer envia uma requisição `POST /events`.  
+  Organizer envia uma requisição `POST /events`.
+  
   **Resposta**: `201 Created` com os dados do novo evento.
   Para criar um evento, o usuário deve preencher os seguintes campos de um form-data:
   - `name`: Título do evento.
@@ -400,7 +397,8 @@ Apenas usuários com a função **Organizer** ou **Admin** podem criar eventos.
   - `eventImage`: Arquivo de imagem do evento.
 
 - **Exemplo de Falha (Participant)**  
-  Participant envia uma requisição `POST /events`.  
+  Participant envia uma requisição `POST /events`.
+    
   **Resposta**: `403 Forbidden`  
   ```json
   {
@@ -409,8 +407,6 @@ Apenas usuários com a função **Organizer** ou **Admin** podem criar eventos.
     "statusCode": 403
   }
   ```
-
----
 
 ### `PATCH /events/:id` - Atualizar Evento
 
@@ -427,11 +423,12 @@ Um **Organizer** só pode atualizar os eventos que ele próprio criou, mas não 
   **Resposta**: `200 OK` com os dados atualizados.
 
 - **Exemplo de Sucesso (Admin)**
-  Admin envia uma requisição PATCH /events/evt-abc para alterar o organizerId passado num JSON ou form-data para um novo organizador.
+  Admin envia uma requisição PATCH /events/evt-abc para alterar o organizerId para um novo organizador.
   **Resposta**: `200 OK` com os dados atualizados
 
 - **Exemplo de Falha (Organizador)**
   Organizador org-123 envia uma requisição PATCH /events/evt-abc tentando alterar o organizerId.
+  
   **Resposta**: `403 Forbidden`
   ```json
   {
@@ -440,10 +437,10 @@ Um **Organizer** só pode atualizar os eventos que ele próprio criou, mas não 
      "statusCode": 403
   }
   ```
-  ---
 
 - **Exemplo de falha (Admin)**
-  Admin envia uma requisição PATCH /events/evt-abc para alterar o organizerId passado num JSON ou form-data para um usuário com permissões de Participant.
+  Admin envia uma requisição PATCH /events/evt-abc para alterar o organizerId para um usuário com permissões de Participant.
+  
   **Resposta**: `403 Forbidden`
   ```json
   {
@@ -452,10 +449,10 @@ Um **Organizer** só pode atualizar os eventos que ele próprio criou, mas não 
      "statusCode": 403
   }
   ```
-  ---
   
 - **Exemplo de Falha (Não é Dono)**  
-  Organizer `org-456` tenta atualizar evento criado por `org-123`.  
+  Organizer `org-456` tenta atualizar evento criado por `org-123`.
+  
   **Resposta**: `403 Forbidden`  
   ```json
   {
@@ -464,8 +461,6 @@ Um **Organizer** só pode atualizar os eventos que ele próprio criou, mas não 
     "statusCode": 403
   }
   ```
-
----
 
 ### `DELETE /events/:id` - Desativar Evento (Soft Delete)
 
@@ -477,7 +472,8 @@ Apenas um **Admin** ou o **Organizer que criou o evento** pode desativá-lo.
   **Resposta**: `204 No Content`.
 
 - **Exemplo de Falha (Não é Dono)**  
-  Organizer `org-456` envia `DELETE /events/evt-abc`.  
+  Organizer `org-456` envia `DELETE /events/evt-abc`.
+  
   **Resposta**: `403 Forbidden`.
   ```json
   {
@@ -486,8 +482,6 @@ Apenas um **Admin** ou o **Organizer que criou o evento** pode desativá-lo.
     "statusCode": 403
   }
   ```
-
----
 
 ## Gestão de Inscrições (`/registrations`)
 
@@ -503,7 +497,8 @@ Qualquer usuário autenticado independente de sua função pode se inscrever num
   **Resposta**: `201 Created` com os detalhes da inscrição.
 
 - **Exemplo de Falha**  
-  Tentativa de inscrição num evento com status `inactive`.  
+  Tentativa de inscrição num evento com status `inactive`.
+  
   **Resposta**: `400 Bad Request`  
   ```json
   {
@@ -513,15 +508,14 @@ Qualquer usuário autenticado independente de sua função pode se inscrever num
   }
   ```
 
----
-
 ### `GET /registrations` - Lista as Inscrições do Usuário autenticado
 
 **Regra**:  
 O usuário só pode listar **suas próprias** inscrições.
 
 - **Exemplo de Sucesso**  
-  Usuário `user-123` faz `GET /registrations`.  
+  Usuário `user-123` faz `GET /registrations`.
+  
   **Resposta**: `200 OK` com a lista de inscrições do `user-123`.
   ```json
   {
@@ -575,8 +569,6 @@ O usuário só pode listar **suas próprias** inscrições.
   }
     ```
 
----
-
 ### `DELETE /registrations/:eventId` - Cancelar Inscrição
 
 **Regra**:  
@@ -588,7 +580,8 @@ A lógica da API usa o `userId` extraído do token JWT para identificar a inscri
   **Resposta**: `204 No Content`.
 
 - **Exemplo de Falha (Implícita)**  
-  Usuário `user-456` tenta cancelar a inscrição de `user-123`.  
+  Usuário `user-456` tenta cancelar a inscrição de `user-123`.
+  
   **Resposta**: `404 Not Found`  
   *(A API buscará uma inscrição com o par `userId: user-456`, `eventId: evt-abc`, que não existe.)*
     ```json
@@ -622,7 +615,6 @@ A lógica da API usa o `userId` extraído do token JWT para identificar a inscri
 | `DELETE`| `/registrations/:eventId`          | Cancela uma inscrição do usuário autenticado.      | Privado (JWT)            |
 
 # Exemplos de Requisições da API (JSON)
----
 
 ### 1. Criar um Usuário (`POST /users`)
 
@@ -636,8 +628,6 @@ Este endpoint utiliza `multipart/form-data` porque pode incluir um arquivo de im
     * `phone` (texto): `+5511999998888`
     * `role` (texto): `PARTICIPANT` (ou `ORGANIZER`, `ADMIN`)
     * `profileImage` (arquivo): `(Selecione um arquivo de imagem aqui (JPG, JPEG, PNG, WEBP))` # opcional
-
----
 
 ### 2. Login de Usuário (`POST /auth/login`)
 
@@ -661,8 +651,6 @@ Este endpoint espera um corpo de requisição no formato `application/json`.
     }
     ```
 
----
-
 ### 3. Acessar uma Rota Protegida (ex: `GET /events`)
 
 Para acessar a qualquer endpoint privado, você precisa de incluir o `access_token` obtido no login no cabeçalho `Authorization`.
@@ -675,8 +663,6 @@ Para acessar a qualquer endpoint privado, você precisa de incluir o `access_tok
     }
     ```
 
----
-
 ### 4. Criar um Evento (Somente Admin ou Organizador) (`POST /events`)
 
 Similar à criação de usuário, este endpoint usa `multipart/form-data` para permitir o upload de uma imagem do evento.
@@ -688,8 +674,6 @@ Similar à criação de usuário, este endpoint usa `multipart/form-data` para p
     * `description` (texto): `Uma conferência sobre as últimas novidades em desenvolvimento de software e IA.`
     * `date` (texto): `2025-12-01T14:00:00Z`
     * `eventImage` (arquivo): `(anexar o arquivo de imagem aqui)`
-
----
 
 ### 5. Atualizar um Usuário (Somente o próprio Usuário autenticado pode atualizar seus dados) (`PATCH /users/:id`)
 
@@ -705,8 +689,6 @@ Este endpoint espera um corpo `application/json` com os campos que deseja atuali
       "phone": "+5511988887777"
     }
     ```
-
----
 
 ### 6. Inscrever-se num Evento (Qualquer Usuário Autenticado) (`POST /registrations`)
 
@@ -726,8 +708,6 @@ Este endpoint espera um corpo `application/json` contendo apenas o ID do evento.
 # Exemplos de Requisições Paginadas e com Filtros
 
 Exemplos de requisições GET para os endpoints de listagem (`/users` e `/events`) que suportam filtros e paginação. Os exemplos são mostrados como se fossem URLs de requisição, seguidos pela resposta JSON esperada.
-
----
 
 ### 1. Paginação Simples
 
@@ -772,7 +752,6 @@ Esta requisição busca os 2 primeiros eventos ativos.
     }
   }
     ```
----
 
 #### Exemplo 2: Obter a segunda página de eventos
 
@@ -819,7 +798,6 @@ Para obter a próxima página, use o `lastEvaluatedKey` da resposta anterior.
   "lastEvaluatedKey": null
 }
 ```
----
 
 #### Exemplo 3: Listar inscrições do usuário autenticado
 Esta requisição busca todas as inscrições do usuário autenticado, com paginação e detalhes do evento e seu organizador.
@@ -878,7 +856,6 @@ Esta requisição busca todas as inscrições do usuário autenticado, com pagin
   "total": 1
 }
 ```
----
 
 ## 2. Requisições com Filtros
 Os filtros são adicionados como parâmetros de query. Eles podem ser combinados com a paginação.
@@ -888,7 +865,6 @@ Os filtros são adicionados como parâmetros de query. Eles podem ser combinados
 # Aqui, por ser uma requisição GET /users, apenas um usuario com a função de administrador pode listar todos os utilizadores.
 # Um usuário autenticado com função diferente só pode fazer requisições para obter os seus próprios dados numa requisição GET /users/{id}.
 ```
----
 
 #### Exemplo 1: Listar usuários com filtro por nome
 Esta requisição busca usuários cujo nome contém "ana". O parâmetro `name` é opcional e pode ser usado para filtrar usuários por parte do nome.
@@ -924,7 +900,6 @@ Esta requisição busca usuários cujo nome contém "ana". O parâmetro `name` �
   "lastEvaluatedKey": null
 }
 ```
----
 
 #### Exemplo 2: Listar eventos ativos em Novembro de 2025 com "Workshop" no nome
 Esta requisição combina múltiplos filtros: status, dateAfter, dateBefore, e name. Todos os parametros são opcionais.
@@ -952,7 +927,6 @@ Esta requisição combina múltiplos filtros: status, dateAfter, dateBefore, e n
   "lastEvaluatedKey": null
 }
 ```
----
 
 ```
 Para mais detalhes sobre os endpoints, consulte a documentação da API (Swagger UI) em `https://localhost:3000/api`.
