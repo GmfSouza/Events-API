@@ -430,7 +430,7 @@ Um **Organizer** só pode atualizar os eventos que ele próprio criou, mas não 
   Admin envia uma requisição PATCH /events/evt-abc para alterar o organizerId passado num JSON ou form-data para um novo organizador.
   **Resposta**: `200 OK` com os dados atualizados
 
-- **Exemplo de Falha (Organizador )**
+- **Exemplo de Falha (Organizador)**
   Organizador org-123 envia uma requisição PATCH /events/evt-abc tentando alterar o organizerId.
   **Resposta**: `403 Forbidden`
   ```json
@@ -442,6 +442,18 @@ Um **Organizer** só pode atualizar os eventos que ele próprio criou, mas não 
   ```
   ---
 
+- **Exemplo de falha (Admin)**
+  Admin envia uma requisição PATCH /events/evt-abc para alterar o organizerId passado num JSON ou form-data para um usuário com permissões de Participant.
+  **Resposta**: `403 Forbidden`
+  ```json
+  {
+     "message": "The new organizer doesn't have permission to be an organizer",
+     "error": "Forbidden",
+     "statusCode": 403
+  }
+  ```
+  ---
+  
 - **Exemplo de Falha (Não é Dono)**  
   Organizer `org-456` tenta atualizar evento criado por `org-123`.  
   **Resposta**: `403 Forbidden`  
