@@ -7,7 +7,7 @@ import { Public } from './decorators/isPublic.decorator';
 import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Auth')
-@Controller()
+@Controller('auth')
 export class AuthController {
     constructor(private readonly authService: AuthService) {}
 
