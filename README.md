@@ -280,12 +280,12 @@ A resposta inclui dados do usuário, sem senha.
   #### Exemplo de Resposta
   ```json
   {
-    "id": "82177f52-9c9d-4737-ab59-af2096d9cf2a",
-    "name": "Admin",
-    "email": "admin@example.com",
-    "phone": "+559999999999",
+    "id": "user-123",
+    "name": "Participant user",
+    "email": "participant@example.com",
+    "phone": "+55998887766",
+    "role": "PARTICIPANT",
     "profileImageUrl": "https://example.com/profile.jpg",
-    "role": "ADMIN",
     "createdAt": "2025-06-04T17:46:34.746Z",
     "updatedAt": "2025-06-04T17:46:34.746Z",
     "isActive": true,
