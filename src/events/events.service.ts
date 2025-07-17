@@ -125,7 +125,6 @@ export class EventsService {
     const expressionAttributeNames: Record<string, string> = {};
     let keyConditionExpression = '';
 
-    let command: QueryCommand | ScanCommand;
     let operation: 'Query' | 'Scan';
     let commandInput: QueryCommandInput | ScanCommandInput;
 

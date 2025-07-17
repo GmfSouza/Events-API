@@ -1,371 +1,940 @@
 # Events API
 
-### Read in [Portuguese](#Events-API-pt)
+![NestJS](https://img.shields.io/badge/NestJS-v10.0.0-red?style=for-the-badge&logo=nestjs)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.1.3-blue?style=for-the-badge&logo=typescript)
+![AWS](https://img.shields.io/badge/AWS-DynamoDB%20%7C%20S3%20%7C%20Lambda%20%7C%20SES-orange?style=for-the-badge&logo=amazon-aws)
+![JWT](https://img.shields.io/badge/JWT-Auth-black?style=for-the-badge&logo=jsonwebtokens)
+![Jest](https://img.shields.io/badge/Jest-Tests-C21325?style=for-the-badge&logo=jest)
 
-
-# About
-Node.js API for a space reservation system. This API allows the management of users, events, and registrations, with authentication and specific functionalities for different types of users (participants, organizers, administrators).
-
-## Main Features
-* **Authentication and Authorization:** Login with email/password and protection of private routes with JWT tokens.
-* **User Management:**
-    * Creation of users (public) with different roles (participant, organizer, admin).
-    * Profile image upload to S3 (with resizing via Lambda).
-    * Editing of one's own user data.
-    * Listing and searching for users (Admin only).
-    * Soft delete of users.
-    * Email validation via token.
-* **Event Management:**
-    * Creation of events by organizers/admins, with image upload to S3.
-    * Editing of events by the original organizer or admin.
-    * Listing of events with filters (name, date, status) for all authenticated users.
-    * Search for an event by ID.
-    * Soft delete of events (inactivation).
-* **Registration Management:**
-    * Participants and Organizers can create registrations for active and future events.
-    * Listing of one's own registrations.
-    * Cancellation (soft delete) of one's own registration.
-* **Email Notifications (AWS SES):**
-    * Email validation upon user creation.
-    * Confirmation of deleted account.
-    * Confirmation of event created (for the organizer).
-    * Confirmation of event deleted (for the organizer).
-    * Confirmation of registration created (with iCalendar attachment).
-    * Confirmation of registration canceled.
-* **Administrator Seed:** Script to create a default administrator user.
-
-## Technologies Used
-* **Language:** TypeScript
-* **Framework:** NestJS
-* **Database:** AWS DynamoDB
-* **File Storage:** AWS S3 (for images)
-* **Serverless Functions:** AWS Lambda (for image resizing)
-* **Email Sending:** AWS SES
-* **Authentication:** JWT with Passport.js
-* **API Documentation:** Swagger (OpenAPI)
-
-## Prerequisites
-Before you begin, ensure you have the following installed on your machine:
-* [Node.js] (LTS version recommended, e.g., 18.x or 20.x)
-* `npm` or `yarn`
-* [AWS CLI] Installed and configured with your AWS credentials and default region.
-    * Run `aws configure` and provide your Access Key ID, Secret Access Key, and Default Region.
-    * The user associated with these credentials must have the necessary permissions to interact with DynamoDB, S3, SES, and Lambda.
-
-## AWS Infrastructure Setup
-This project requires the following AWS services to be configured in your account:
-1.  **DynamoDB:**
-    * Table for Users (`Users`) with GSI for `email` and `role`.
-    * Table for Events (`Events`) with GSI for `name` (uniqueness), `organizerId`, and `status`+`eventDate`.
-    * Table for Registrations (`Registrations`) with a composite primary key `userId`+`eventId` and GSI for `eventId`.
-2.  **S3:**
-    * A bucket for original images (e.g., `events-images-originals`).
-    * A bucket for resized images (e.g., `events-images-resized`).
-3.  **IAM:**
-    * An IAM user for local development with permissions for DynamoDB, S3, SES.
-    * An IAM Role for the image resizing Lambda with permissions to read from the S3 originals bucket, write to the S3 resized bucket, and for CloudWatch logs.
-4.  **Lambda:**
-    * A Lambda function configured to be triggered by uploads to the `user-profiles/` and `event-images/` prefixes of the S3 originals bucket.
-    * This function should resize the images and save them to the S3 resized bucket.
-    * Environment variables configured in Lambda (`S3_DESTINATION_BUCKET_NAME`, `TARGET_WIDTH`, `RESIZED_IMAGE_PREFIX`).
-5.  **SES:**
-    * Verified sender email identity.
-    * If the SES account is in sandbox mode, recipient emails for testing must also be verified.
-    * SES region configured correctly.
-
-## How to Run the Project
-1.  **Clone the Repository:**
-    ```bash
-    git clone <repository-url>
-    cd project-folder-name
-    ```
-2.  **Install Dependencies:**
-    Using npm:
-    ```bash
-    npm install
-    ```
-    Or using yarn:
-    ```bash
-    yarn install
-    ```
-3.  **Configure Environment Variables:**
-    * Copy the `.env.example` file to a new file named `.env`:
-        ```bash
-        cp .env.example .env
-        ```
-    * Open your `.env` file and fill in all the necessary variables with your values.
-       ```env
-        PORT=
-
-        AWS_ACCESS_KEY_ID=
-        AWS_SECRET_ACCESS_KEY=
-        AWS_SESSION_TOKEN=
-        AWS_REGION=
-
-        DYNAMODB_TABLE_USERS=
-        DYNAMODB_TABLE_EVENTS=
-        DYNAMODB_TABLE_REGISTRATIONS=
-        
-        TARGET_WIDTH=
-        TARGET_HEIGHT=
-        RESIZED_IMAGE_PREFIX=
-        
-        S3_BUCKET_NAME=
-        S3_PROFILE_IMAGE_PATH=
-        S3_EVENT_IMAGE_PATH=
-        
-        JWT_SECRET=
-        JWT_EXPIRES_IN=
-        
-        SES_REGION=
-        SES_FROM_EMAIL=
-        API_URL=
-        
-        DEFAULT_ADMIN_NAME=
-        DEFAULT_ADMIN_EMAIL=
-        DEFAULT_ADMIN_PASSWORD=
-        DEFAULT_ADMIN_PHONE=
-       ```
-4.  **Provision the Database**
-    * This script will create a the necessary DynamoDB tables (Users, Events, Registrations) in your configured AWS Region.
-    ```bash
-    npm run provision:db
-    ```
-    Or with yarn:
-    ```bash
-    yarn provision:db
-    ```
-5.  **Run the Seed Script (Optional, but recommended to have an admin):**
-    * This script will create a default administrator user if one does not already exist.
-    ```bash
-    npm run seed
-    ```
-    Or with yarn:
-    ```bash
-    yarn seed
-    ```
-6.  **Start the Application in Development Mode:**
-    ```bash
-    npm run start:dev
-    ```
-    Or with yarn:
-    ```bash
-    yarn start:dev
-    ```
-    The application should start on the port you configured in `.env` (or on port 3000 by default).
-7.  **Access Swagger Documentation:**
-    * Open your browser and go to: `http://localhost:<port>/api`
-        (e.g., `http://localhost:3000/api`)
-    * There you can see all API endpoints, their DTOs, and test them. For protected routes, use the "Authorize" button to enter a JWT token obtained after login.
-
-## Useful Scripts
-* `npm run start`: Starts the application in production mode (after build).
-* `npm run start:dev`: Starts the application in development mode with watch mode.
-* `npm run build`: Compiles TypeScript code to JavaScript (to the `dist` folder).
-* `npm run test`: Runs unit tests with Jest.
-* `npm run test:cov`: Runs unit tests and generates a coverage report.
-* `npm run provision:db`: Runs the script to provision the required DynamoDB tables.
-* `npm run seed`: Runs the seeding script to create the default admin user.
-
-## Project Structure (Main Folders in `src`)
-* `auth/`: Authentication logic, DTOs, guards, strategies.
-* `aws/`: Services for interaction with AWS SDK (DynamoDB, S3).
-* `database/seed/`: Logic and script for database seeding.
-* `events/`: Module for event management (controller, service, DTOs, interface).
-* `mail/`: Module and service for sending emails via SES.
-* `registrations/`: Module for registration management (controller, service, DTOs, interface).
-* `users/`: Folder for user management (controller, service, DTOs, interface, enums).
-* `main.ts`: Main file of the NestJS application.
-* `app.module.ts`: Root module of the application.
-
----
-
-# Events API pt
-
-# Sobre
-API Node.js para um sistema de reservas de espaços. Esta API permite o gerenciamento de usuários, eventos e inscrições, com autenticação e funcionalidades específicas para diferentes tipos de usuários (participantes, organizadores, administradores).
+API Node.js para um sistema de criação e inscrição de eventos. Esta API permite o gerenciamento de usuários, eventos e inscrições, com autenticação e funcionalidades específicas para diferentes tipos de usuários (participantes, organizadores, administradores).
 
 ## Funcionalidades Principais
 
-* **Autenticação e Autorização:** Login com email/palavra-passe e proteção de rotas privadas com tokens JWT.
-* **Gestão de Usuários:**
-    * Criação de Usuários (público) com diferentes funções (participante, organizador, admin).
-    * Upload de imagem de perfil para o S3 (com redimensionamento via Lambda).
-    * Edição de dados do próprio usuário.
-    * Listagem e busca de usuário (apenas Admin).
-    * Soft delete de usuários.
-    * Validação de e-mail via token.
-* **Gestão de Eventos:**
-    * Criação de eventos por organizadores/admins, com upload de imagem para o S3.
-    * Edição de eventos pelo organizador original ou admin.
-    * Listagem de eventos com filtros (nome, data, status) para todos os usuários autenticados.
-    * Busca de evento por ID.
-    * Soft delete de eventos (inativação).
-* **Gestão de Inscrições:**
-    * Participantes e Organizadores podem criar inscrições em eventos ativos e futuros.
-    * Listagem das próprias inscrições.
-    * Cancelamento (soft delete) da própria inscrição.
-* **Notificações por E-mail (AWS SES):**
-    * Validação de e-mail na criação do usuário.
-    * Confirmação de conta deletada.
-    * Confirmação de evento criado (para o organizador).
-    * Confirmação de evento deletado (para o organizador).
-    * Confirmação de inscrição criada (com anexo iCalendar).
-    * Confirmação de inscrição cancelada.
+* **Autenticação e Autorização:** Login com email/palavra-passe e proteção de rotas privadas com tokens JWT. Controle de acesso baseado em funções.
+* **Gestão de Usuários:** Operações CRUD para usuários, upload de imagem de perfil para o S3 (com redimensionamento via Lambda), validação de email e soft delete.
+* **Gestão de Eventos:** CRUD para eventos, incluindo upload de imagem, filtros e paginação.
+* **Gestão de Inscrições:** Permite que usuários se inscrevam em eventos e gerenciem suas inscrições.
+* **Notificações por Email (AWS SES):** Emails automáticos para validação de usuário, alterações de conta, criação/deleção de eventos e confirmações de inscrição (com anexo iCalendar).
 * **Seed de Administrador:** Script para criar um usuário administrador padrão.
+* **Documentação da API:** Documentação com Swagger (OpenAPI).
 
 ## Tecnologias Utilizadas
 
-* **Linguagem:** TypeScript
-* **Framework:** NestJS
-* **Base de Dados:** AWS DynamoDB
-* **Armazenamento de Arquivos:** AWS S3 (para imagens)
-* **Funções Serverless:** AWS Lambda (para redimensionamento de imagens)
-* **Envio de E-mails:** AWS SES
-* **Autenticação:** JWT com Passport.js
-* **Documentação da API:** Swagger (OpenAPI)
+* [TypeScript](https://www.typescriptlang.org/)
+* [NestJS](https://nestjs.com/)
+* [AWS DynamoDB](https://aws.amazon.com/dynamodb/)
+* [AWS S3](https://aws.amazon.com/s3/)
+* [AWS Lambda](https://aws.amazon.com/lambda/)
+* [AWS SES](https://aws.amazon.com/ses/)
+* [Passport.js](http://www.passportjs.org/) para Autenticação JWT
+* [Swagger (OpenAPI)](https://swagger.io/) para Documentação da API
+* [Jest](https://jestjs.io/) para Testes Unitários
 
 ## Pré-requisitos
 
 Antes de começar, certifique-se de que tem o seguinte instalado na sua máquina:
 
-* [Node.js] (versão LTS recomendada, ex: 18.x ou 20.x)
+* [Node.js](https://nodejs.org/en) (versão LTS recomendada, ex: 18.x ou 20.x)
 * `npm` ou `yarn`
-* [AWS CLI] Instalado e configurado com as suas credenciais AWS e região padrão.
-    * Execute `aws configure` e forneça o seu Access Key ID, Secret Access Key e Default Region.
-    * O usuário associado a estas credenciais deve ter as permissões necessárias para interagir com DynamoDB, S3, SES e Lambda.
+* [AWS CLI](https://aws.amazon.com/cli/) instalado e configurado.
+    * Execute `aws configure` e forneça o seu Access Key ID, Secret Access Key e Região Padrão. O usuário IAM associado a estas credenciais deve ter as permissões necessárias para DynamoDB, S3 e SES.
 
-## Configuração da Infraestrutura AWS
-
-Este projeto requer que os seguintes serviços AWS estejam configurados na sua conta:
-
-1.  **DynamoDB:**
-    * Tabela para usuários (`Users`) com GSI para `email` e `role`.
-    * Tabela para Eventos (`Events`) com GSI para `name` (unicidade), `organizerId` e `status`+`eventDate`.
-    * Tabela para Inscrições (`Registrations`) com chave primária composta `userId`+`eventId` e GSI para `eventId`.
-2.  **S3:**
-    * Um bucket para imagens originais (ex: `events-images-originals`).
-    * Um bucket para imagens redimensionadas (ex: `events-images-resized`).
-3.  **IAM:**
-    * Um usuário IAM para desenvolvimento local com permissões para DynamoDB, S3, SES.
-    * Uma Função IAM para a Lambda de redimensionamento de imagem com permissões para ler do bucket S3 de originais, escrever no bucket S3 de redimensionadas e para logs no CloudWatch.
-4.  **Lambda:**
-    * Uma função Lambda configurada para ser acionada por uploads nos prefixos `user-profiles/` e `event-images/` do bucket S3 de originais.
-    * Esta função deve redimensionar as imagens e salvá-las no bucket S3 de redimensionadas.
-    * Variáveis de ambiente configuradas na Lambda (`S3_DESTINATION_BUCKET_NAME`, `TARGET_WIDTH`, `RESIZED_IMAGE_PREFIX`).
-5.  **SES:**
-    * Identidade de e-mail de remetente verificada.
-    * Se a conta SES estiver no sandbox, os emails de destinatário para teste também devem ser verificados.
-    * Região do SES configurada corretamente.
-
-## Como Executar o Projeto
+## Instalação e Configuração
 
 1.  **Clone o Repositório:**
     ```bash
-    git clone <URL_DO_SEU_REPOSITORIO_GIT>
-    cd nome-da-pasta-do-projeto
+    git clone https://github.com/GmfSouza/Events-API.git
+    cd Events-API
     ```
 
 2.  **Instale as Dependências:**
-    Usando npm:
     ```bash
     npm install
     ```
-    Ou usando yarn:
+    ou
     ```bash
     yarn install
     ```
 
 3.  **Configure as Variáveis de Ambiente:**
-    * Copie o arquivo `.env.example` para um novo arquivo chamado `.env`:
-        ```bash
-        cp .env.example .env
-        ```
-    * Abra o seu arquivo `.env` e preencha todas as variáveis necessárias com os seus valores.
-       ```env
-        PORT=
+    * Copie o arquivo de exemplo `.env.example` para um novo arquivo chamado `.env`.
+    * Abra o arquivo `.env` e preencha todas as variáveis necessárias com os seus valores.
 
-        AWS_ACCESS_KEY_ID=
-        AWS_SECRET_ACCESS_KEY=
-        AWS_SESSION_TOKEN=
-        AWS_REGION=
+    ```dotenv
+    # .env.example
+    
+    # Aplicação
+    PORT=3000
+    API_URL=http://localhost:3000
 
-        DYNAMODB_TABLE_USERS=
-        DYNAMODB_TABLE_EVENTS=
-        DYNAMODB_TABLE_REGISTRATIONS=
+    # Credenciais AWS (para desenvolvimento local)
+    AWS_ACCESS_KEY_ID=SUA_AWS_ACCESS_KEY_ID_AQUI
+    AWS_SECRET_ACCESS_KEY=SUA_AWS_SECRET_ACCESS_KEY_AQUI
+    AWS_SESSION_TOKEN=SUA_AWS_SESSION_TOKEN_AQUI
+    AWS_REGION=us-east-1 # ex: us-east-1, sa-east-1
+    
+    # Nomes das Tabelas DynamoDB
+    DYNAMODB_TABLE_USERS=Users
+    DYNAMODB_TABLE_EVENTS=Events
+    DYNAMODB_TABLE_REGISTRATIONS=Registrations
 
-        TARGET_WIDTH=
-        TARGET_HEIGHT=
-        RESIZED_IMAGE_PREFIX=
+    # Configuração S3
+    S3_BUCKET_NAME=seu-bucket-de-originais # Bucket para imagens originais
+    S3_PROFILE_IMAGE_PATH=user-profiles/
+    S3_EVENT_IMAGE_PATH=events-images/
+    
+    # Variáveis de Ambiente da Lambda (para referência, configuradas na AWS)
+    # DESTINATION_BUCKET_NAME=seu-bucket-de-redimensionadas
+    # TARGET_WIDTH=200
+    # TARGET_HEIGHT=200
+    # RESIZED_IMAGE_PREFIX=resized/
+    
+    # Autenticação JWT
+    JWT_SECRET=SUA_CHAVE_JWT_SECRETA
+    JWT_EXPIRATION_TIME=3600s # ex: 1h, 7d, 3600 (segundos)
+        
+    # AWS SES (Serviço de Email)
+    SES_REGION=us-east-1 # Região onde a sua identidade SES está verificada
+    SES_FROM_EMAIL="Compass Events <noreply@seu-dominio-verificado.com>"
 
-        S3_BUCKET_NAME=
-        S3_PROFILE_IMAGE_PATH=
-        S3_EVENT_IMAGE_PATH=
+    # Usuário Administrador Padrão para Seeding
+    DEFAULT_ADMIN_NAME=Admin
+    DEFAULT_ADMIN_EMAIL=admin@gmail.com
+    DEFAULT_ADMIN_PASSWORD=SuaSenhaAdminForte123!
+    DEFAULT_ADMIN_PHONE=+5511999999999
+    ```
 
-        JWT_SECRET=
-        JWT_EXPIRES_IN=
-
-        SES_REGION=
-        SES_FROM_EMAIL=
-        API_URL=
-
-        DEFAULT_ADMIN_NAME=
-        DEFAULT_ADMIN_EMAIL=
-        DEFAULT_ADMIN_PASSWORD=
-        DEFAULT_ADMIN_PHONE=
-       ```
-4.  **Provisione o Banco de dados**
-    * Esse script criará as tabelas do DynamoDB (Users, Events, Resgistrations) configuradas na sua região AWS configurada.
+4.  **Provisione as Tabelas da Base de Dados:**
+    * Este script criará as tabelas DynamoDB necessárias na sua Região AWS configurada.
     ```bash
     npm run provision:db
     ```
-    Ou com yarn:
+    Ou
     ```bash
     yarn provision:db
+    ```
 
-5.  **Execute o Script de Seed (Opcional, mas recomendado para ter um admin):**
+5.  **Execute o Script de Seed (Opcional, mas recomendado):**
     * Este script criará um usuário administrador padrão se ele ainda não existir.
     ```bash
     npm run seed
     ```
-    Ou com yarn:
+    Ou
     ```bash
     yarn seed
     ```
 
-6.  **Inicie a Aplicação em Modo de Desenvolvimento:**
+6.  **Inicie a Aplicação:**
     ```bash
     npm run start:dev
     ```
-    Ou com yarn:
+    Ou
     ```bash
     yarn start:dev
     ```
-    A aplicação deverá iniciar na porta que você configurou no `.env` (ou na porta 3000 por padrão).
+    A aplicação será executada em `http://localhost:<PORT>`.
 
-7.  **Acesse a Documentação do Swagger:**
-    * Abra o seu navegador e vá para: `http://localhost:<PORTA>/api`
-        (ex: `http://localhost:3000/api`)
-    * Lá você poderá ver todos os endpoints da API, os seus DTOs e testá-los. Para rotas protegidas, use o botão "Authorize" para inserir um token JWT obtido após o login.
+## Documentação da API
 
+Quando a aplicação estiver em execução, você pode acessar a documentação da API (Swagger UI) em:
+
+**`http://localhost:<PORT>/api`** ou (Porta `3000` por padrão)
+
+A partir daí, você pode visualizar todos os endpoints, os seus DTOs, e testá-los diretamente. Para rotas protegidas, use o botão "Authorize" para inserir um token JWT obtido após o login.
+
+# Arquitetura de Imagens com S3 e Lambda
+
+Para o gerenciamento de imagens de perfil e de eventos, o projeto utiliza uma arquitetura serverless com os serviços **AWS S3** e **AWS Lambda**, garantindo que as imagens sejam armazenadas de forma segura e otimizada.
+
+## 1. Estratégia de Armazenamento com S3
+
+Nesse projeto, foi utilizada uma abordagem com **dois buckets S3** para separar claramente as imagens originais das processadas:
+
+### Bucket de Originais (ex: `events-images-originais`)
+
+- Este bucket recebe todas as imagens brutas carregadas pela API (seja no momento da criação de um usuário ou de um evento).
+- Os arquivos são organizados usando **prefixos** (que funcionam como pastas):
+
+  - `user-profiles/`: Para imagens de perfil dos usuários.
+  - `events-images/`: Para imagens de capa dos eventos.
+
+- Este bucket é configurado para ser **privado**. O acesso para escrita é concedido apenas à API NestJS através de permissões IAM.
+
+### Bucket de Redimensionadas (ex: `events-images-redimensionadas`)
+
+- Este bucket armazena as **versões otimizadas e redimensionadas** das imagens, que foram processadas pela função Lambda.
+- A estrutura de prefixos do bucket de originais é **replicada** aqui para manter a organização.
+
+---
+
+## 2. Função Lambda para Redimensionamento de Imagens
+
+Uma função Lambda é o cérebro por trás do processamento de imagens.
+
+- **Função**: Redimensionar automaticamente qualquer nova imagem carregada para um tamanho padrão e otimizado.
+- **Tecnologia**: Escrita em TypeScript e executada em um ambiente Node.js, utilizando a biblioteca`sharp` para o processamento de imagens.
+
+### Lógica:
+
+1. Recebe um evento de notificação do S3.
+2. Identifica o bucket e o arquivo da imagem original que foi carregado.
+3. Faz o download da imagem original para a memória da função Lambda.
+4. Usa a biblioteca `sharp` para redimensionar a imagem para dimensões padrão (configuradas via variáveis de ambiente na Lambda, ex: `200x200` pixels).
+5. Faz o upload da nova imagem redimensionada para o bucket de destino (bucket de redimensionadas).
+
+---
+
+## 3. Gatilhos (Triggers) S3
+
+A automação do processo é garantida por **gatilhos S3** configurados no bucket de originais.
+
+- **Como Funciona**: O bucket de originais está configurado para enviar uma notificação para a função Lambda sempre que um novo objeto é criado (`s3:ObjectCreated:*`).
+- **Filtros de Prefixo**: Para garantir que a Lambda só seja acionada por imagens relevantes, os gatilhos são filtrados para observar apenas os prefixos:
+
+  - `user-profiles/`
+  - `events-images/`
+
+> Isso evita que a Lambda seja acionada por outros arquivos que possam ser colocados no bucket e também previne loops recursivos, já que a Lambda escreve em um bucket diferente.
+
+---
+
+## Fluxo de Upload e Redimensionamento
+
+O processo completo, do upload à exibição, funciona da seguinte forma:
+
+1. Um usuário (ou organizador) envia um formulário através da API NestJS para criar/atualizar um perfil ou evento, anexando um arquivo de imagem.
+2. A API NestJS (`S3Service`) faz o upload da imagem original para o bucket de originais no S3, dentro do prefixo apropriado (ex: `user-profiles/resized/imagem.jpg`).
+3. O S3 detecta a criação deste novo objeto e, como corresponde a um dos prefixos configurados, aciona a função Lambda, enviando os detalhes do arquivo.
+4. A função Lambda é executada, faz o download da imagem original, redimensiona-a e faz o upload da versão otimizada para o bucket de redimensionadas, mantendo a estrutura de pastas (ex: `user-profiles/resized/imagem.jpg`).
+5. A API NestJS, no momento da criação/atualização, salva a **URL da imagem** (seja a original ou, idealmente, a URL esperada da imagem redimensionada) no registro correspondente no **DynamoDB**.
+
+Para maiores detalhes sobre a configuração do S3 e Lambda, consulte a documentação oficial da AWS:
+- [AWS S3](https://docs.aws.amazon.com/pt_br/lambda/latest/dg/with-s3-tutorial.html)
+
+## Lógica de Envio de Emails com AWS SES
+
+A API está configurada para enviar emails transacionais em momentos chave do fluxo da aplicação, utilizando o Amazon Simple Email Service (SES).
+
+## Configuração
+
+O serviço de email (`MailService`) é projetado para ser flexível e resiliente. A sua configuração é controlada por variáveis de ambiente no arquivo `.env`:
+
+- `SES_REGION`: A região da AWS onde o seu serviço SES está configurado e as suas identidades de email estão verificadas.
+- `SES_FROM_EMAIL`: O endereço de email remetente que aparecerá nos emails. Este endereço deve ser verificado na sua conta AWS SES.
+
+### Credenciais (Opcional)
+
+- `AWS_ACCESS_KEY_ID` e `AWS_SECRET_ACCESS_KEY`: Credenciais globais da AWS que serão usadas se as credenciais específicas do SES não forem fornecidas.
+
+## Comportamento de Envio Opcional
+
+O envio de emails é opcional e será ignorado silenciosamente (apenas um aviso será logado no console da API) se as configurações mínimas não forem fornecidas. O envio de emails é desabilitado se:
+
+- `SES_REGION` ou `SES_FROM_EMAIL` não estiverem definidos no arquivo `.env`.
+- Nenhuma credencial AWS for encontrada no `.env` **e** a aplicação não estiver sendo executada em um ambiente AWS com uma IAM Role que conceda permissões ao SES.
+
+Isso permite que o projeto seja executado em ambientes de desenvolvimento sem a necessidade de configurar o envio de emails.
+
+## Modo Sandbox do AWS SES
+
+Por padrão, novas contas AWS SES estão em modo "sandbox". Isto significa que:
+
+- Você só pode enviar emails **DE** endereços e domínios verificados.
+- Você só pode enviar emails **PARA** endereços e domínios que também foram verificados na sua conta SES.
+
+Para testar o fluxo de emails, certifique-se de que os emails dos destinatários de teste também estão verificados no seu console do SES.
+
+## Emails Automáticos
+
+A API envia os seguintes emails automáticos:
+
+- **Validar a conta de um usuário**: Enviado após um novo usuário se registrar. Contém um link único para verificar o endereço de email.
+- **Conta Deletada (Soft Delete)**: Enviado ao usuário quando a sua conta é desativada.
+- **Evento Criado**: Enviado ao organizador para confirmar que o seu evento foi criado com sucesso.
+- **Evento Deletado (Soft Delete)**: Enviado ao organizador quando o seu evento é desativado.
+- **Inscrição Criada**: Enviado ao participante para confirmar a sua inscrição num evento. Este email inclui um anexo iCalendar (`.ics`) para que o participante possa adicionar facilmente o evento ao seu calendário.
+- **Inscrição Cancelada**: Enviado ao participante para confirmar que a sua inscrição foi cancelada.
+
+---
+
+# Funções e Permissões (Lógica de Negócio)
+
+A API implementa um sistema de **Controle de Acesso Baseado em Funções** (RBAC - *Role-Based Access Control*) para garantir que os usuários só possam realizar as ações permitidas para sua função.  
+As principais funções são: **Participant**, **Organizer** e **Admin**.
+
+---
+
+## Gestão de Usuários (`/users`)
+
+As permissões para gerenciar usuários são estritas para proteger os dados sensíveis.
+
+### `GET /users/:id` - Obter Usuário por ID
+  
+Um **Admin** pode obter o perfil de qualquer usuário.  
+Um usuário normal (**PARTICIPANT** ou **ORGANIZER**) só pode obter o **próprio** perfil.
+A resposta inclui dados do usuário, sem senha.
+- **Exemplo de Sucesso (Dono)**  
+  Participant com ID `user-123` faz uma requisição `GET /users/user-123`.  
+  **Resposta**: `200 OK` com os dados do usuário.
+
+  #### Exemplo de Resposta
+  ```json
+  {
+    "id": "82177f52-9c9d-4737-ab59-af2096d9cf2a",
+    "name": "Admin",
+    "email": "admin@example.com",
+    "phone": "+559999999999",
+    "profileImageUrl": "https://example.com/profile.jpg",
+    "role": "ADMIN",
+    "createdAt": "2025-06-04T17:46:34.746Z",
+    "updatedAt": "2025-06-04T17:46:34.746Z",
+    "isActive": true,
+  }
+  ```
+
+- **Exemplo de Sucesso (Admin)**  
+  Admin faz uma requisição `GET /users/user-123`.  
+  **Resposta**: `200 OK` com os dados do usuário.
+    #### Exemplo de Resposta
+    ```json
+    {
+        "id": "user-123",
+        "name": "Participant User",
+        "email": "participant@example.com",
+        "phone": "+55998887766",
+        "role": "PARTICIPANT",
+        "profileImageUrl": "https://example.com/profile.jpg",
+        "createdAt": "2025-06-04T17:46:34.746Z",
+        "updatedAt": "2025-06-04T17:46:34.746Z",
+        "isActive": true,
+      }
+    ```
+
+- **Exemplo de Falha (Não é Dono/Admin)**  
+  Participant com ID `user-456` faz uma requisição `GET /users/user-123`.  
+  **Resposta**: `403 Forbidden`  
+  ```json
+  {
+    "message": "You do not have permission to access this resource",
+    "error": "Forbidden",
+    "statusCode": 403
+  }
+  ```
+
+---
+
+### `PATCH /users/:id` - Atualizar Usuário
+
+**Regra**:  
+Um usuário só pode atualizar os **próprios** dados.
+
+- **Exemplo de Sucesso (Dono)**  
+  Usuário `user-123` envia uma requisição `PATCH /users/user-123`.  
+  **Resposta**: `200 OK` com os dados atualizados.
+    #### Exemplo de Resposta
+    ```json
+    {
+        "id": "user-123",
+        "name": "Updated User",
+        "email": "updated.user@example.com",
+        "phone": "+55998887766",
+        "role": "PARTICIPANT",
+        "profileImageUrl": "https://example.com/profile-updated.jpg",
+        "createdAt": "2025-06-04T17:46:34.746Z",
+        "updatedAt": "2025-06-04T17:46:34.746Z",
+        "isActive": true
+      }
+    ```
+
+- **Exemplo de Falha (Não é Dono)**  
+  Usuário `user-456` envia uma requisição `PATCH /users/user-123`.  
+  **Resposta**: `403 Forbidden`  
+  ```json
+    {
+        "message": "You do not have permission to access this resource",
+        "error": "Forbidden",
+        "statusCode": 403
+    }
+  ```
+
+---
+
+### `GET /users` - Listar Todos os Usuários
+
+**Regra**:  
+Apenas usuários com a função **Admin** podem listar todos os usuários.
+
+- **Exemplo de Sucesso (Admin)**  
+  Admin faz uma requisição `GET /users`.  
+  **Resposta**: `200 OK` com a lista de usuários.
+
+- **Exemplo de Falha (Não é Admin)**  
+  Organizer ou Participant faz uma requisição `GET /users`.  
+  **Resposta**: `403 Forbidden`  
+  ```json
+  {
+    "message": "You do not have permission to access this resource",
+    "error": "Forbidden",
+    "statusCode": 403
+  }
+  ```
+
+---
+
+## Gestão de Eventos (`/events`)
+
+A criação e gestão de eventos são restritas a **Organizadores** e **Administradores**.
+
+### `POST /events` - Criar Evento
+
+**Regra**:  
+Apenas usuários com a função **Organizer** ou **Admin** podem criar eventos.
+
+- **Exemplo de Sucesso (Organizer)**  
+  Organizer envia uma requisição `POST /events`.  
+  **Resposta**: `201 Created` com os dados do novo evento.
+  Para criar um evento, o usuário deve preencher os seguintes campos de um form-data:
+  - `name`: Título do evento.
+  - `description`: Descrição do evento.
+  - `date`: Data e hora do evento (formato: `YYYY-MM-DDTHH:mm:ssZ`).
+  - `eventImage`: Arquivo de imagem do evento.
+
+- **Exemplo de Falha (Participant)**  
+  Participant envia uma requisição `POST /events`.  
+  **Resposta**: `403 Forbidden`  
+  ```json
+  {
+    "message": "You do not have permission to access this resource",
+    "error": "Forbidden",
+    "statusCode": 403
+  }
+  ```
+
+---
+
+### `PATCH /events/:id` - Atualizar Evento
+
+**Regra**:  
+Um **Admin** pode atualizar qualquer evento.  
+Um **Organizer** só pode atualizar os eventos que ele próprio criou.
+
+- **Exemplo de Sucesso (Dono)**  
+  Organizer `org-123` (criador do evento com ID `evt-abc`) envia `PATCH /events/evt-abc`, num formulário com os campos a serem atualizados.  
+  **Resposta**: `200 OK` com os dados atualizados.
+
+- **Exemplo de Sucesso (Admin)**  
+  Admin envia `PATCH /events/evt-abc`, num formulário com os campos a serem atualizados.  
+  **Resposta**: `200 OK` com os dados atualizados.
+
+- **Exemplo de Falha (Não é Dono)**  
+  Organizer `org-456` tenta atualizar evento criado por `org-123`.  
+  **Resposta**: `403 Forbidden`  
+  ```json
+  {
+    "message": "You do not have permission to access this resource",
+    "error": "Forbidden",
+    "statusCode": 403
+  }
+  ```
+
+---
+
+### `DELETE /events/:id` - Desativar Evento (Soft Delete)
+
+**Regra**:  
+Apenas um **Admin** ou o **Organizer que criou o evento** pode desativá-lo.
+
+- **Exemplo de Sucesso (Dono)**  
+  Organizer `org-123` envia `DELETE /events/evt-abc`.  
+  **Resposta**: `204 No Content`.
+
+- **Exemplo de Falha (Não é Dono)**  
+  Organizer `org-456` envia `DELETE /events/evt-abc`.  
+  **Resposta**: `403 Forbidden`.
+  ```json
+  {
+    "message": "You do not have permission to access this resource",
+    "error": "Forbidden",
+    "statusCode": 403
+  }
+  ```
+
+---
+
+## Gestão de Inscrições (`/registrations`)
+
+As operações de inscrição são focadas no usuário autenticado.
+
+### `POST /registrations` - Criar Inscrição
+
+**Regra**:  
+Qualquer usuário autenticado independente de sua função pode se inscrever num evento **ativo** e **ainda não ocorrido**.
+
+- **Exemplo de Sucesso**  
+  Usuário envia `POST /registrations` com `eventId` válido passado no corpo da requisição.  
+  **Resposta**: `201 Created` com os detalhes da inscrição.
+
+- **Exemplo de Falha**  
+  Tentativa de inscrição num evento com status `inactive`.  
+  **Resposta**: `400 Bad Request`  
+  ```json
+  {
+    "message": "'You cannot register for an event that is not active'",
+    "error": "Bad Request",
+    "statusCode": 400
+  }
+  ```
+
+---
+
+### `GET /registrations` - Lista as Inscrições do Usuário autenticado
+
+**Regra**:  
+O usuário só pode listar **suas próprias** inscrições.
+
+- **Exemplo de Sucesso**  
+  Usuário `user-123` faz `GET /registrations`.  
+  **Resposta**: `200 OK` com a lista de inscrições do `user-123`.
+  ```json
+  {
+    "registrationsWithEventDetails": [
+        {
+            "id": "registration-123",
+            "userId": "user-123",
+            "eventId": "event-abc",
+            "registrationDate": "2025-07-16T22:06:31.984Z",
+            "status": "ACTIVE",
+            "updatedAt": "2025-07-16T22:06:31.984Z",
+            "event": {
+                "id": "event-abc",
+                "name": "Technology Conference",
+                "description": "A conference about technology.",
+                "date": "2026-07-10T19:00:00Z",
+                "imageUrl": "https://example.com/event-image.jpg",
+                "status": "ACTIVE",
+                "createdAt": "2025-07-16T20:14:36.843Z",
+                "updatedAt": "2025-07-16T20:14:36.843Z"
+            },
+            "organizer": {
+                "id": "admin-123",
+                "name": "Admin"
+            }
+        },
+        {
+            "id": "registration-456",
+            "userId": "user-123",
+            "eventId": "event-456",
+            "registrationDate": "2025-07-17T00:14:54.298Z",
+            "status": "ACTIVE",
+            "updatedAt": "2025-07-17T00:14:54.298Z",
+            "event": {
+                "id": "event-456",
+                "name": "Music Festival",
+                "description": "A festival celebrating music.",
+                "date": "2026-06-04T15:10:00Z",
+                "imageUrl": "https://example.com/event-image-2.jpg",
+                "status": "ACTIVE",
+                "createdAt": "2025-07-16T20:09:37.455Z",
+                "updatedAt": "2025-07-16T20:09:37.455Z"
+            },
+            "organizer": {
+                "id": "organizer-456",
+                "name": "Organizer"
+            }
+        }
+    ],
+    "total": 2
+  }
+    ```
+
+---
+
+### `DELETE /registrations/:eventId` - Cancelar Inscrição
+
+**Regra**:  
+O usuário só pode cancelar **sua própria inscrição**.  
+A lógica da API usa o `userId` extraído do token JWT para identificar a inscrição.
+
+- **Exemplo de Sucesso (Dono)**  
+  Usuário `user-123`, inscrito no evento `evt-abc`, envia `DELETE /registrations/evt-abc`.  
+  **Resposta**: `204 No Content`.
+
+- **Exemplo de Falha (Implícita)**  
+  Usuário `user-456` tenta cancelar a inscrição de `user-123`.  
+  **Resposta**: `404 Not Found`  
+  *(A API buscará uma inscrição com o par `userId: user-456`, `eventId: evt-abc`, que não existe.)*
+    ```json
+    {
+        "message": "Registration not found",
+        "error": "Not Found",
+        "statusCode": 404
+    }
+    ```
+
+---
+
+## Endpoints da API
+
+| Método | Endpoint                            | Descrição                                          | Acesso                   |
+| :----- | :---------------------------------- | :------------------------------------------------- | :----------------------- |
+| `POST` | `/auth/login`                       | Autentica um usuário e retorna um JWT.             | Público                  |
+| `GET`  | `/auth/validate-email`              | Valida o email de um usuário via token.           | Público                  |
+| `POST` | `/users`                            | Cria um novo usuário.                              | Público                  |
+| `GET`  | `/users`                            | Lista todos os usuários com filtros.               | Privado (Admin)          |
+| `GET`  | `/users/:id`                        | Obtém um usuário específico por ID.                | Privado (Admin, Dono)    |
+| `PATCH`| `/users/:id`                        | Atualiza os dados do próprio usuário.              | Privado (Dono)           |
+| `DELETE`| `/users/:id`                       | Desativa (soft delete) um usuário.                 | Privado (Admin, Dono)    |
+| `POST` | `/events`                           | Cria um novo evento.                               | Privado (Admin, Org)     |
+| `GET`  | `/events`                           | Lista todos os eventos com filtros.                | Privado (JWT)            |
+| `GET`  | `/events/:id`                       | Obtém um evento específico por ID.                 | Privado (JWT)            |
+| `PATCH`| `/events/:id`                       | Atualiza um evento.                                | Privado (Admin, Dono)    |
+| `DELETE`| `/events/:id`                      | Desativa (soft delete) um evento.                  | Privado (Admin, Dono)    |
+| `POST` | `/registrations`                    | Inscreve o usuário autenticado num evento.         | Privado (JWT)            |
+| `GET`  | `/registrations`                    | Lista todas as inscrições do usuário autenticado   | Privado (JWT)            |
+| `DELETE`| `/registrations/:eventId`          | Cancela uma inscrição do usuário autenticado.      | Privado (JWT)            |
+
+# Exemplos de Requisições da API (JSON)
+---
+
+### 1. Criar um Usuário (`POST /users`)
+
+Este endpoint utiliza `multipart/form-data` porque pode incluir um arquivo de imagem. Não é um único payload JSON. Os dados são enviados como campos de formulário separados.
+
+* **Content-Type:** `multipart/form-data`
+* **Campos do Formulário (no Postman, na aba "Body" -> "form-data"):**
+    * `name` (texto): `João da Silva`
+    * `email` (texto): `joao.silva@example.com`
+    * `password` (texto): `SenhaForte123!`
+    * `phone` (texto): `+5511999998888`
+    * `role` (texto): `PARTICIPANT` (ou `ORGANIZER`, `ADMIN`)
+    * `profileImage` (arquivo): `(aqui, selecione um arquivo de imagem da sua máquina)`
+
+---
+
+### 2. Login de Usuário (`POST /auth/login`)
+
+Este endpoint espera um corpo de requisição no formato `application/json`.
+
+* **Content-Type:** `application/json`
+* **Corpo da Requisição (JSON):**
+
+    ```json
+    {
+      "email": "joao.silva@example.com",
+      "password": "SenhaForte123!"
+    }
+    ```
+
+* **Resposta de Sucesso (Exemplo):**
+
+    ```json
+    {
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ..."
+    }
+    ```
+
+---
+
+### 3. Acessar uma Rota Protegida (ex: `GET /events`)
+
+Para acessar a qualquer endpoint privado, você precisa de incluir o `access_token` obtido no login no cabeçalho `Authorization`.
+
+* **Cabeçalho da Requisição:**
+
+    ```json
+    {
+      "Authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ..."
+    }
+    ```
+
+---
+
+### 4. Criar um Evento (Somente Admin ou Organizador) (`POST /events`)
+
+Similar à criação de usuário, este endpoint usa `multipart/form-data` para permitir o upload de uma imagem do evento.
+
+* **Content-Type:** `multipart/form-data`
+* **Cabeçalho:** `Authorization: Bearer SEU_TOKEN_JWT_AQUI`
+* **Campos do Formulário:**
+    * `name` (texto): `Conferência Anual de Tecnologia`
+    * `description` (texto): `Uma conferência sobre as últimas novidades em desenvolvimento de software e IA.`
+    * `date` (texto): `2025-12-01T14:00:00Z`
+    * `eventImage` (arquivo): `(anexar o arquivo de imagem aqui, opcional)`
+
+---
+
+### 5. Atualizar um Usuário (Somente o próprio Usuário autenticado pode atualizar seus dados) (`PATCH /users/:id`)
+
+Este endpoint espera um corpo `application/json` com os campos que deseja atualizar.
+
+* **Content-Type:** `application/json`
+* **Cabeçalho:** `Authorization: Bearer SEU_TOKEN_JWT_AQUI`
+* **Corpo da Requisição (JSON - Exemplo):**
+
+    ```json
+    {
+      "name": "João da Silva Santos",
+      "phone": "+5511988887777"
+    }
+    ```
+
+---
+
+### 6. Inscrever-se num Evento (Qualquer Usuário Autenticado) (`POST /registrations`)
+
+Este endpoint espera um corpo `application/json` contendo apenas o ID do evento.
+
+* **Content-Type:** `application/json`
+* **Cabeçalho:** `Authorization: Bearer SEU_TOKEN_JWT_AQUI`
+* **Corpo da Requisição (JSON):**
+
+    ```json
+    {
+      "eventId": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+    }
+    ```
+---
+
+# Exemplos de Requisições Paginadas e com Filtros
+
+Exemplos de requisições GET para os endpoints de listagem (`/users` e `/events`) que suportam filtros e paginação. Os exemplos são mostrados como se fossem URLs de requisição, seguidos pela resposta JSON esperada.
+
+---
+
+### 1. Paginação Simples
+
+A paginação é controlada pelos parâmetros de query `limit` e `lastEvaluatedKey`.
+
+#### Exemplo 1: Obter a primeira página de eventos
+
+Esta requisição busca os 2 primeiros eventos ativos.
+
+* **Requisição:**
+  `GET /events?status=ACTIVE&limit=2`
+
+* **Resposta JSON de Exemplo (quando há mais páginas):**
+
+  ```json
+  {
+    "events": [
+      {
+        "id": "evt-uuid-001",
+        "name": "Conferência de Tecnologia 2025",
+        "description": "Uma conferência sobre as últimas novidades em tecnologia.",
+        "date": "2025-10-20T19:00:00Z",
+        "imageUrl": "https://s3.amazonaws.com/your-bucket/event-images/evt-uuid-001.jpg",
+        "status": "active",
+        "createdAt": "2025-09-01T12:00:00Z",
+        "updatedAt": "2025-09-01T12:00:00Z",
+      },
+      {
+        "id": "evt-uuid-002",
+        "name": "Workshop de Design",
+        "description": "Um workshop sobre design de interfaces.",
+        "date": "2025-11-05T14:00:00Z",
+        "imageUrl": "https://s3.amazonaws.com/your-bucket/event-images/evt-uuid-002.jpg",
+        "status": "active",
+        "createdAt": "2025-10-01T12:00:00Z",
+        "updatedAt": "2025-10-01T12:00:00Z"
+      }
+    ],
+    "count": 2,
+    "lastEvaluatedKey": {
+      "id": "evt-uuid-002",
+    }
+  }
+    ```
+---
+
+#### Exemplo 2: Obter a segunda página de eventos
+
+Para obter a próxima página, use o `lastEvaluatedKey` da resposta anterior.
+
+```json
+{
+  "id": "evt-uuid-002",
+}
+```
+
+**Requisição:**
+`GET /events?status=active&limit=2&lastEvaluatedKey={"id":"evt-uuid-002"}`
+
+(Nota: O objeto JSON no lastEvaluatedKey deve ser codificado para URL, mas ferramentas como o Postman fazem isso automaticamente).
+
+**Resposta JSON de Exemplo (última página):**
+
+```json
+{
+  "events": [
+    {
+      "id": "evt-uuid-003",
+      "name": "Meetup de Desenvolvedores",
+      "description": "Encontro mensal para desenvolvedores.",
+      "date": "2025-11-15T18:30:00Z",
+      "imageUrl": "https://s3.amazonaws.com/your-bucket/event-images/evt-uuid-003.jpg",
+      "status": "active",
+      "createdAt": "2025-10-15T12:00:00Z",
+      "updatedAt": "2025-10-15T12:00:00Z"
+    },
+    {
+        "id": "evt-uuid-004",
+        "name": "Palestra sobre IA",
+        "description": "Uma palestra sobre as últimas tendências em inteligência artificial.",
+        "date": "2025-11-20T10:00:00Z",
+        "imageUrl": "https://s3.amazonaws.com/your-bucket/event-images/evt-uuid-004.jpg",
+        "status": "active",
+        "createdAt": "2025-10-20T12:00:00Z",
+        "updatedAt": "2025-10-20T12:00:00Z"
+    }
+  ],
+  "count": 2,
+  "lastEvaluatedKey": null
+}
+```
+---
+
+#### Exemplo 3: Listar inscrições do usuário autenticado
+Esta requisição busca todas as inscrições do usuário autenticado, com paginação e detalhes do evento e seu organizador.
+**Requisição:**
+`GET /registrations?limit=5`
+
+**Resposta JSON de Exemplo:**
+```json
+{
+  "registrationsWithEventDetails": [
+    {
+      "id": "ebfb2597-ebac-4b4c-88da-d336a5f06f2b",
+      "userId": "82177f52-9c9d-4737-ab59-af2096d9cf2a",
+      "eventId": "9b06cf85-a283-4170-a5cd-dad7e6fbd1a7",
+      "registrationDate": "2025-07-16T22:06:31.984Z",
+      "status": "ACTIVE",
+      "updatedAt": "2025-07-16T22:06:31.984Z",
+      "event": {
+        "id": "9b06cf85-a283-4170-a5cd-dad7e6fbd1a7",
+        "name": "Technology Conference",
+        "description": "A conference about technology.",
+        "date": "2026-07-10T19:00:00Z",
+        "imageUrl": "https://s3.amazonaws.com/your-bucket/event-images/9b06cf85-a283-4170-a5cd-dad7e6fbd1a7.jpg",
+        "status": "ACTIVE",
+        "createdAt": "2025-07-16T20:14:36.843Z",
+        "updatedAt": "2025-07-16T20:14:36.843Z"
+      },
+      "organizer": {
+        "id": "82177f52-9c9d-4737-ab59-af2096d9cf2a",
+        "name": "Carlos"
+      }
+    },
+    {
+      "id": "c3d2f1e0-4b5a-4c8b-9f3e-6d7e8f9a0b1c",
+      "userId": "82177f52-9c9d-4737-ab59-af2096d9cf2a",
+      "eventId": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+      "registrationDate": "2025-07-17T10:00:00.000Z",
+      "status": "ACTIVE",
+      "updatedAt": "2025-07-17T10:00:00.000Z",
+      "event": {
+        "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+        "name": "Workshop on AI",
+        "description": "A workshop on artificial intelligence.",
+        "date": "2026-08-15T14:00:00Z",
+        "imageUrl": "https://s3.amazonaws.com/your-bucket/event-images/a1b2c3d4-e5f6-7890-1234-567890abcdef.jpg",
+        "status": "ACTIVE",
+        "createdAt": "2025-07-17T09:00:00.000Z",
+        "updatedAt": "2025-07-17T09:00:00.000Z"
+      },
+      "organizer": {
+        "id": "9c9d4737-ab59-af2096d9cf2a-82177f52",
+        "name": "Lucas"
+      }
+    }
+  ],
+  "total": 1
+}
+```
+---
+
+## 2. Requisições com Filtros
+Os filtros são adicionados como parâmetros de query. Eles podem ser combinados com a paginação.
+```
+# No exemplo abaixo, temos uma requisição GET /users, então podemos adicionar filtros como `name`, `role` e `email`.
+# O parâmetro `role` pode ser usado para filtrar usuários por função (ADMIN, ORGANIZER, PARTICIPANT).
+# Aqui, por ser uma requisição GET /users, apenas um usuario com a função de administrador pode listar todos os utilizadores.
+# Um usuário autenticado com função diferente só pode fazer requisições para obter os seus próprios dados numa requisição GET /users/{id}.
+```
+---
+
+#### Exemplo 1: Listar usuários com filtro por nome
+Esta requisição busca usuários cujo nome contém "ana". O parâmetro `name` é opcional e pode ser usado para filtrar usuários por parte do nome.
+**Requisição:**
+`GET /users?name=ana`
+
+**Resposta JSON de Exemplo:**
+
+```json
+{
+  "users": [
+    {
+      "id": "user-uuid-123",
+      "name": "Ana paula",
+      "email": "ana.org@email.com",
+      "phone": "+5511999999999",
+      "role": "ORGANIZER",
+      "isActive": true
+    },
+    {
+      "id": "user-uuid-456",
+      "name": "Mariana Costa",
+      "email": "mari.coord@email.com",
+      "phone": "+5511988888888",
+      "role": "ORGANIZER",
+      "isActive": true,
+      "isEmailValidated": false,
+      "emailValidationToken": "b495cdd6-332e-455a-b80e-fb140e0f6e38",
+      "emailValidationTokenExpires": "2025-06-15T18:58:22.106Z"
+    }
+  ],
+  "count": 2,
+  "lastEvaluatedKey": null
+}
+```
+---
+
+#### Exemplo 2: Listar eventos ativos em Novembro de 2025 com "Workshop" no nome
+Esta requisição combina múltiplos filtros: status, dateAfter, dateBefore, e name. Todos os parametros são opcionais.
+
+**Requisição:**
+`GET /events?status=ACTIVE&name=Workshop&dateAfter=2025-11-01&dateBefore=2025-11-30`
+
+**Resposta JSON de Exemplo:**
+```json
+
+{
+  "events": [
+    {
+      "id": "evt-uuid-002",
+      "name": "Workshop de Design",
+      "description": "Um workshop sobre design de interfaces.",
+      "date": "2025-11-05T14:00:00Z",
+      "imageUrl": "https://s3.amazonaws.com/your-bucket/event-images/evt-uuid-002.jpg",
+      "status": "active",
+      "createdAt": "2025-10-01T12:00:00Z",
+      "updatedAt": "2025-10-01T12:00:00Z"
+    }
+  ],
+  "count": 1,
+  "lastEvaluatedKey": null
+}
+```
+---
+
+```
+Para mais detalhes sobre os endpoints, consulte a documentação da API (Swagger UI) em `https://localhost:3000/api`.
+```
+---
 ## Scripts Úteis
 
-* `npm run start`: Inicia a aplicação em modo de produção (após o build).
-* `npm run start:dev`: Inicia a aplicação em modo de desenvolvimento com watch mode.
-* `npm run build`: Compila o código TypeScript para JavaScript (para a pasta `dist`).
-* `npm run test`: Executa os testes unitários com Jest.
-* `npm run test:cov`: Executa os testes unitários e gera um relatório de cobertura.
-* `npm run provision:db`: Executa o scrpit de seeding para provisionar as tabelas do banco de dados.
-* `npm run seed`: Executa o script de seeding para criar o usuário admin padrão.
-
-## Estrutura do Projeto (Principais Pastas em `src`)
-
-* `auth/`: Lógica de autenticação, DTOs, guards, strategies.
-* `aws/`: Serviços para interação com AWS SDK (DynamoDB, S3).
-* `database/seed/`: Lógica e script para o seeding do banco de dados.
-* `events/`: Módulo para gestão de eventos (controller, service, DTOs, interface).
-* `mail/`: Módulo e serviço para envio de e-mails via SES.
-* `registrations/`: Módulo para gestão de inscrições (controller, service, DTOs, interface).
-* `users/`: Pasta para gestão de usuários (controller, service, DTOs, interface, enums).
-* `main.ts`: Arquivo principal da aplicação NestJS.
-* `app.module.ts`: Módulo raiz da aplicação.
+* `npm run start:dev`: Inicia a aplicação em modo de desenvolvimento.
+* `npm run build`: Compila o código TypeScript para JavaScript.
+* `npm run test`: Executa os testes unitários.
+* `npm run test:cov`: Executa os testes e gera um relatório de cobertura.
+* `npm run provision:db`: Executa o script para criar as tabelas no DynamoDB.
+* `npm run seed`: Executa o script para criar o usuário administrador padrão.

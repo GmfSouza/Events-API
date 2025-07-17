@@ -73,7 +73,7 @@ export class EventResponseDto {
     required: false,
   })
   @Expose()
-  imageUrl?: string | null;
+  imageUrl: string | null;
 
   @ApiProperty({
     description: 'Status of the event',

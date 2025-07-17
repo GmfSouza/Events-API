@@ -58,7 +58,7 @@ export class EventsController {
     description: 'Event data.',
     schema: {
       type: 'object',
-      required: ['name', 'description', 'eventDate'],
+      required: ['name', 'description', 'date', 'eventImage'],
       properties: {
         name: { type: 'string', example: 'Technology Conference' },
         description: {
@@ -74,7 +74,6 @@ export class EventsController {
           type: 'string',
           format: 'binary',
           description: 'File to upload (JPG, JPEG, PNG, WEBP). Max: 5MB.',
-          nullable: true,
         },
       },
     },
@@ -275,7 +274,9 @@ export class EventsController {
       throw new NotFoundException('Event not found');
     }
 
-    return event;
+    return new EventResponseDto({
+      ...event,     
+    });
   }
 
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
