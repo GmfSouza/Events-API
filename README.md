@@ -415,16 +415,32 @@ Apenas usuários com a função **Organizer** ou **Admin** podem criar eventos.
 ### `PATCH /events/:id` - Atualizar Evento
 
 **Regra**:  
-Um **Admin** pode atualizar qualquer evento.  
-Um **Organizer** só pode atualizar os eventos que ele próprio criou.
+Um **Admin** pode atualizar qualquer evento, incluindo alterar o organizador.  
+Um **Organizer** só pode atualizar os eventos que ele próprio criou, mas não pode alterar o organizador.
 
 - **Exemplo de Sucesso (Dono)**  
-  Organizer `org-123` (criador do evento com ID `evt-abc`) envia `PATCH /events/evt-abc`, num formulário com os campos a serem atualizados.  
+  Organizer `org-123` (criador do evento com ID `evt-abc`) envia `PATCH /events/evt-abc`, num JSON ou form-data com os campos a serem atualizados.  
   **Resposta**: `200 OK` com os dados atualizados.
 
 - **Exemplo de Sucesso (Admin)**  
-  Admin envia `PATCH /events/evt-abc`, num formulário com os campos a serem atualizados.  
+  Admin envia `PATCH /events/evt-abc`, num JSON ou form-data com os campos a serem atualizados.  
   **Resposta**: `200 OK` com os dados atualizados.
+
+- **Exemplo de Sucesso (Admin)**
+  Admin envia uma requisição PATCH /events/evt-abc para alterar o organizerId passado num JSON ou form-data para um novo organizador.
+  **Resposta**: `200 OK` com os dados atualizados
+
+- **Exemplo de Falha (Organizador )**
+  Organizador org-123 envia uma requisição PATCH /events/evt-abc tentando alterar o organizerId.
+  **Resposta**: `403 Forbidden`
+  ```json
+  {
+     "message": "Only admins can change the organizer.",
+     "error": "Forbidden",
+     "statusCode": 403
+  }
+  ```
+  ---
 
 - **Exemplo de Falha (Não é Dono)**  
   Organizer `org-456` tenta atualizar evento criado por `org-123`.  
@@ -607,7 +623,7 @@ Este endpoint utiliza `multipart/form-data` porque pode incluir um arquivo de im
     * `password` (texto): `SenhaForte123!`
     * `phone` (texto): `+5511999998888`
     * `role` (texto): `PARTICIPANT` (ou `ORGANIZER`, `ADMIN`)
-    * `profileImage` (arquivo): `(aqui, selecione um arquivo de imagem da sua máquina)`
+    * `profileImage` (arquivo): `(Selecione um arquivo de imagem aqui (JPG, JPEG, PNG, WEBP))` # opcional
 
 ---
 
@@ -659,7 +675,7 @@ Similar à criação de usuário, este endpoint usa `multipart/form-data` para p
     * `name` (texto): `Conferência Anual de Tecnologia`
     * `description` (texto): `Uma conferência sobre as últimas novidades em desenvolvimento de software e IA.`
     * `date` (texto): `2025-12-01T14:00:00Z`
-    * `eventImage` (arquivo): `(anexar o arquivo de imagem aqui, opcional)`
+    * `eventImage` (arquivo): `(anexar o arquivo de imagem aqui)`
 
 ---
 
