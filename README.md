@@ -855,11 +855,11 @@ Esta requisição busca todas as inscrições do usuário autenticado, com pagin
 ## 2. Requisições com Filtros
 Os filtros são adicionados como parâmetros de query. Eles podem ser combinados com a paginação.
 
-> No exemplo abaixo, temos uma requisição GET /users
-> Podemos adicionar filtros como `name`, `role` e `email`
+> No exemplo abaixo, temos uma requisição GET /users,
+> sendo assim, podemos adicionar filtros como `name`, `role` e `email`.
 > O parâmetro `role` pode ser usado para filtrar usuários por função (ADMIN, ORGANIZER, PARTICIPANT).
 > Apenas um usuario com a função de administrador tem acesso a essa rota.
-> Um usuário com função diferente só pode fazer requisições para obter os seus próprios dados numa requisição GET /users/{id}.
+> Um usuário com função diferente, só pode fazer requisições para obter os seus próprios dados numa requisição `GET /users/{id}`.
 
 #### Exemplo 1: Listar usuários com filtro por nome
 Esta requisição busca usuários cujo nome contém "ana". O parâmetro `name` é opcional e pode ser usado para filtrar usuários por parte do nome.
