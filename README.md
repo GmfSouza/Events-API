@@ -165,8 +165,6 @@ Nesse projeto, foi utilizada uma abordagem com **dois buckets S3** para separar 
 - Este bucket armazena as **versões otimizadas e redimensionadas** das imagens, que foram processadas pela função Lambda.
 - A estrutura de prefixos do bucket de originais é **replicada** aqui para manter a organização.
 
----
-
 ## 2. Função Lambda para Redimensionamento de Imagens
 
 Uma função Lambda é o cérebro por trás do processamento de imagens.
@@ -182,8 +180,6 @@ Uma função Lambda é o cérebro por trás do processamento de imagens.
 4. Usa a biblioteca `sharp` para redimensionar a imagem para dimensões padrão (configuradas via variáveis de ambiente na Lambda, ex: `200x200` pixels).
 5. Faz o upload da nova imagem redimensionada para o bucket de destino (bucket de redimensionadas).
 
----
-
 ## 3. Gatilhos (Triggers) S3
 
 A automação do processo é garantida por **gatilhos S3** configurados no bucket de originais.
@@ -197,7 +193,6 @@ A automação do processo é garantida por **gatilhos S3** configurados no bucke
 > Isso evita que a Lambda seja acionada por outros arquivos que possam ser colocados no bucket e também previne loops recursivos, já que a Lambda escreve em um bucket diferente.
 
 ---
-
 ## Fluxo de Upload e Redimensionamento
 
 O processo completo, do upload à exibição, funciona da seguinte forma:
@@ -859,12 +854,12 @@ Esta requisição busca todas as inscrições do usuário autenticado, com pagin
 
 ## 2. Requisições com Filtros
 Os filtros são adicionados como parâmetros de query. Eles podem ser combinados com a paginação.
-```
-# No exemplo abaixo, temos uma requisição GET /users, então podemos adicionar filtros como `name`, `role` e `email`.
-# O parâmetro `role` pode ser usado para filtrar usuários por função (ADMIN, ORGANIZER, PARTICIPANT).
-# Aqui, por ser uma requisição GET /users, apenas um usuario com a função de administrador pode listar todos os utilizadores.
-# Um usuário autenticado com função diferente só pode fazer requisições para obter os seus próprios dados numa requisição GET /users/{id}.
-```
+
+> No exemplo abaixo, temos uma requisição GET /users
+> Podemos adicionar filtros como `name`, `role` e `email`
+> O parâmetro `role` pode ser usado para filtrar usuários por função (ADMIN, ORGANIZER, PARTICIPANT).
+> Apenas um usuario com a função de administrador tem acesso a essa rota.
+> Um usuário com função diferente só pode fazer requisições para obter os seus próprios dados numa requisição GET /users/{id}.
 
 #### Exemplo 1: Listar usuários com filtro por nome
 Esta requisição busca usuários cujo nome contém "ana". O parâmetro `name` é opcional e pode ser usado para filtrar usuários por parte do nome.
@@ -928,9 +923,9 @@ Esta requisição combina múltiplos filtros: status, dateAfter, dateBefore, e n
 }
 ```
 
-```
-Para mais detalhes sobre os endpoints, consulte a documentação da API (Swagger UI) em `https://localhost:3000/api`.
-```
+
+> Para mais detalhes sobre os endpoints, consulte a documentação da API (Swagger UI) em `https://localhost:3000/api`.
+
 ---
 ## Scripts Úteis
 
